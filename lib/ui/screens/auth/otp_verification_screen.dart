@@ -47,39 +47,39 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     });
 
     try {
-      final isVerified = await _authRepository.verifyOtp(
+      final response = await _authRepository.verifyOtp(
         _phoneNumber,
         _otpController.text,
       );
 
-      if (isVerified) {
-        // Load user data
-        final user = await _authRepository.getCurrentUser();
+      if (!mounted) return;
 
-        if (!mounted) return;
-
-        // Update user provider
-        Provider.of<UserProvider>(context, listen: false).setUser(user);
+      if (response['success'] == true) {
+        // Get user data from response
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        if (response['user_data'] != null) {
+          userProvider.setUser(response['user_data']);
+        }
 
         // Navigate to dashboard
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/dashboard', (route) => false);
       } else {
-        throw Exception('Invalid verification code');
-      }
-    } catch (e) {
-      _errorHandler.handleError(e);
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Invalid verification code. Please try again.';
-      });
-    } finally {
-      if (mounted) {
         setState(() {
+          _errorMessage =
+              response['message'] ??
+              'Invalid verification code. Please try again.';
           _isLoading = false;
         });
       }
+    } catch (e) {
+      if (!mounted) return;
+      _errorHandler.handleError(e);
+      setState(() {
+        _errorMessage = 'Failed to verify code. Please try again.';
+        _isLoading = false;
+      });
     }
   }
 
@@ -90,15 +90,22 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     });
 
     try {
-      await _authRepository.requestOtp(_phoneNumber);
+      final success = await _authRepository.requestOtp(_phoneNumber);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verification code sent again')),
-      );
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verification code sent again')),
+        );
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to resend code. Please try again.';
+        });
+      }
     } catch (e) {
-      _errorHandler.handleError(e);
       if (!mounted) return;
+      _errorHandler.handleError(e);
       setState(() {
         _errorMessage = 'Failed to resend code. Please try again.';
       });

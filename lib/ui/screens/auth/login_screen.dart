@@ -76,41 +76,48 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (response['success'] == true) {
-        // Get user data from response
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
-        if (response['user_data'] != null) {
-          userProvider.setUser(response['user_data']);
-        }
+        // Get user data from response and update provider
+        try {
+          // final userProvider = Provider.of<UserProvider>(
+          //   context,
+          //   listen: false,
+          // );
+          // if (response['user_data'] != null) {
+          //   userProvider.setUser(response['user_data']);
+          // }
 
-        if (!mounted) return;
+          if (!mounted) return;
 
-        // Clear navigation stack and go to dashboard
-        Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (route) => false);
-      } else {
-        setState(() {
-          _errorMessage = response['message'] ?? 'Invalid OTP. Please try again.';
-          _isLoading = false;
-          _otpSent = false;
-        });
+          // Clear navigation stack and go to dashboard
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/dashboard', (route) => false);
+        } catch (e) {
+          if (!mounted) return;
+
+          // If user data handling fails, logout and show error
           await _authRepository.logout();
           setState(() {
-            _errorMessage = 'Failed to get user data. Please try again.';
+            _errorMessage = 'Failed to process user data. Please try again.';
             _isLoading = false;
             _otpSent = false;
           });
         }
+      } else {
+        setState(() {
+          _errorMessage =
+              response['message'] ?? 'Invalid OTP. Please try again.';
+          _isLoading = false;
+          _otpSent = false;
+        });
       }
     } catch (e) {
+      if (!mounted) return;
       _errorHandler.handleAuthError(e);
       setState(() {
         _errorMessage = 'Invalid OTP. Please try again.';
+        _isLoading = false;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
