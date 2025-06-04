@@ -9,25 +9,45 @@ class DrillGroupApi {
 
   Future<List<DrillGroup>> getDrillGroups({
     String? search,
-    int limit = 10,
+    int skip = 0,
+    int limit = 100,
   }) async {
-    String endpoint = ApiConfig.drillGroups;
-    List<String> queryParams = [];
+    final queryParams = <String, String>{
+      'skip': skip.toString(),
+      'limit': limit.toString(),
+    };
 
     if (search != null && search.isNotEmpty) {
-      queryParams.add('search=$search');
+      queryParams['search'] = search;
     }
 
-    if (limit > 0) {
-      queryParams.add('limit=$limit');
+    final response = await _apiClient.get(
+      ApiConfig.drillGroups,
+      queryParameters: queryParams,
+    );
+
+    print('DrillGroups API Response: ${response.data}');
+
+    if (response.data is! List) {
+      print('DrillGroups API Error: Expected List but got ${response.data.runtimeType}');
+      throw FormatException(
+        'Expected List response but got ${response.data.runtimeType}',
+      );
     }
 
-    if (queryParams.isNotEmpty) {
-      endpoint = '$endpoint?${queryParams.join('&')}';
+    try {
+      final groups = (response.data as List)
+          .map((json) {
+            print('Processing drill group: $json');
+            return DrillGroup.fromJson(json);
+          })
+          .toList();
+      print('Successfully parsed ${groups.length} drill groups');
+      return groups;
+    } catch (e, stackTrace) {
+      print('Error parsing drill groups: $e\n$stackTrace');
+      rethrow;
     }
-
-    final response = await _apiClient.get(endpoint);
-    return (response as List).map((item) => DrillGroup.fromJson(item)).toList();
   }
 
   Future<DrillGroup> getDrillGroup(int groupId) async {
@@ -37,8 +57,16 @@ class DrillGroupApi {
 
   // For admin functionality
   Future<DrillGroup> createDrillGroup(Map<String, dynamic> groupData) async {
+    print('Creating drill group with data: $groupData');
     final response = await _apiClient.post(ApiConfig.drillGroups, groupData);
-    return DrillGroup.fromJson(response);
+    print('Create drill group response: ${response.data}');
+    
+    try {
+      return DrillGroup.fromJson(response.data);
+    } catch (e, stackTrace) {
+      print('Error parsing created drill group: $e\n$stackTrace');
+      rethrow;
+    }
   }
 
   Future<DrillGroup> updateDrillGroup(

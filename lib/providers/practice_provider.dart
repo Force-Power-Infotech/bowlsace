@@ -2,8 +2,11 @@ import 'package:flutter/foundation.dart';
 import '../models/practice_session.dart';
 import '../models/drill_group.dart';
 import '../models/drill.dart';
+import '../api/services/drill_group_service.dart';
 
 class PracticeProvider extends ChangeNotifier {
+  final _drillGroupService = DrillGroupService();
+
   List<Session> _sessions = [];
   List<DrillGroup> _drillGroups = [];
   Session? _currentSession;
@@ -123,15 +126,76 @@ class PracticeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Set loading state
+  // Loading and Error State Methods
   void setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
   }
 
-  // Set error
   void setError(String? error) {
     _error = error;
     notifyListeners();
+  }
+
+  // API Methods
+  Future<void> getDrillGroups({int skip = 0, int limit = 100}) async {
+    if (_isLoading) return; // Prevent multiple simultaneous calls
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      print('🔄 Getting drill groups... skip: $skip, limit: $limit');
+      final response = await _drillGroupService.getDrillGroups(
+        skip: skip,
+        limit: limit,
+      );
+      print('✅ Got ${response.length} drill groups');
+
+      setDrillGroups(response);
+    } catch (e) {
+      print('❌ Error in getDrillGroups: $e');
+      setError(e.toString());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  Future<DrillGroup?> createDrillGroup({
+    required String name,
+    String? description,
+    List<int>? drillIds,
+    bool isPublic = true,
+    List<String>? tags,
+    int difficulty = 1,
+  }) async {
+    if (_isLoading) return null;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      print('🔄 Creating drill group: $name');
+      final newGroup = await _drillGroupService.createDrillGroup(
+        name: name,
+        description: description,
+        drillIds: drillIds,
+        isPublic: isPublic,
+        tags: tags,
+        difficulty: difficulty,
+      );
+      print('✅ Created drill group: ${newGroup.id}');
+
+      // Add to local list
+      addDrillGroup(newGroup);
+
+      return newGroup;
+    } catch (e) {
+      print('❌ Error in createDrillGroup: $e');
+      setError(e.toString());
+      return null;
+    } finally {
+      setLoading(false);
+    }
   }
 }

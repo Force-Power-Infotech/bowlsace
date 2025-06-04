@@ -3,6 +3,7 @@ import '../api/api_client.dart';
 import '../api/api_error_handler.dart';
 import '../api/services/auth_api.dart';
 import '../api/services/practice_api.dart';
+import '../api/services/drill_group_api.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/practice_repository.dart';
 import '../utils/connectivity_service.dart';
@@ -28,13 +29,20 @@ void setupServiceLocator() {
   getIt.registerLazySingleton<PracticeApi>(
     () => PracticeApi(getIt<ApiClient>()),
   );
+  getIt.registerLazySingleton<DrillGroupApi>(
+    () => DrillGroupApi(getIt<ApiClient>()),
+  );
 
   // Repositories
   getIt.registerLazySingleton<AuthRepository>(
     () => AuthRepository(getIt<AuthApi>(), getIt<SecureStorage>()),
   );
   getIt.registerLazySingleton<PracticeRepository>(
-    () => PracticeRepository(getIt<PracticeApi>(), getIt<LocalStorage>()),
+    () => PracticeRepository(
+      getIt<PracticeApi>(),
+      getIt<DrillGroupApi>(),
+      getIt<LocalStorage>(),
+    ),
   );
 
   // Services

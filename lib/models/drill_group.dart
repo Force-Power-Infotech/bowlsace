@@ -5,64 +5,83 @@ class DrillGroup {
   final int id;
   final String name;
   final String description;
-  final String imageUrl;
-  final Color accentColor;
-  final List<Drill> drills;
-  final DateTime createdAt;
-  final bool isCustom;
-  final String? category; // e.g., 'Beginner', 'Advanced', etc.
-  final int totalDuration; // Total minutes of all drills
-  final double difficulty; // 1-5 scale
+  final int userId;
+  final bool isPublic;
+  final int difficulty;
   final List<String> tags;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<Drill> drills;
+  final List<int> drillIds;
 
   DrillGroup({
     required this.id,
     required this.name,
     required this.description,
-    required this.imageUrl,
-    required this.accentColor,
-    required this.drills,
-    required this.createdAt,
-    this.isCustom = false,
-    this.category,
-    required this.totalDuration,
+    required this.userId,
+    required this.isPublic,
     required this.difficulty,
     required this.tags,
+    required this.createdAt,
+    required this.updatedAt,
+    this.drills = const [],
+    this.drillIds = const [],
   });
 
-  factory DrillGroup.fromJson(Map<String, dynamic> json) {
+  // Named constructor for creating new drill groups
+  factory DrillGroup.create({
+    required String name,
+    String? description,
+    List<int>? drillIds,
+    bool isPublic = true,
+    List<String>? tags,
+    int difficulty = 1,
+  }) {
     return DrillGroup(
-      id: json['id'],
-      name: json['name'],
-      description: json['description'],
-      imageUrl: json['image_url'],
-      accentColor: Color(json['accent_color']),
-      drills: (json['drills'] as List)
-          .map((drill) => Drill.fromJson(drill))
-          .toList(),
-      createdAt: DateTime.parse(json['created_at']),
-      isCustom: json['is_custom'] ?? false,
-      category: json['category'],
-      totalDuration: json['total_duration'] ?? 0,
-      difficulty: (json['difficulty'] ?? 3.0).toDouble(),
-      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      id: 0,
+      name: name,
+      description: description ?? '',
+      userId: 0,
+      isPublic: isPublic,
+      difficulty: difficulty,
+      tags: tags ?? [],
+      drillIds: drillIds ?? [],
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      drills: const [],
     );
   }
 
+  factory DrillGroup.fromJson(Map<String, dynamic> json) {
+    return DrillGroup(
+      id: json['id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      userId: json['user_id'] as int? ?? 0, // Fixed: using snake_case keys from API
+      isPublic: json['is_public'] as bool? ?? false, // Fixed: using snake_case keys from API
+      difficulty: json['difficulty'] as int? ?? 1,
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      createdAt: json['created_at'] != null // Fixed: using snake_case keys from API
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null // Fixed: using snake_case keys from API
+          ? DateTime.parse(json['updated_at'])
+          : DateTime.now(),
+      drills: (json['drills'] as List<dynamic>?)?.map((drill) =>
+              Drill.fromJson(drill as Map<String, dynamic>)).toList() ?? [],
+      drillIds: (json['drill_ids'] as List<dynamic>?)?.map((id) => id as int).toList() ?? [],
+    );
+  }
+
+  /// Used for API requests, only includes fields needed for creation/update
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
       'name': name,
       'description': description,
-      'image_url': imageUrl,
-      'accent_color': accentColor.value,
-      'drills': drills.map((drill) => drill.toJson()).toList(),
-      'created_at': createdAt.toIso8601String(),
-      'is_custom': isCustom,
-      'category': category,
-      'total_duration': totalDuration,
-      'difficulty': difficulty,
+      'drill_ids': drillIds,
+      'is_public': isPublic,
       'tags': tags,
+      'difficulty': difficulty,
     };
   }
 }

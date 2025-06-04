@@ -63,6 +63,12 @@ class AuthApi {
     return await _apiClient.get(ApiConfig.currentUser);
   }
 
+  Future<void> updateToken(String token) async {
+    if (_apiClient is TokenManager) {
+      await (_apiClient as TokenManager).setToken(token);
+    }
+  }
+
   Future<Map<String, dynamic>> updateProfile({
     String? firstName,
     String? lastName,

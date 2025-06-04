@@ -8,33 +8,7 @@ class PracticeApi {
 
   PracticeApi(this._client);
 
-  // Drill Groups
-  Future<List<DrillGroup>> getDrillGroups() async {
-    final response = await _client.get('/practice/drill-groups');
-    return (response.data as List)
-        .map((json) => DrillGroup.fromJson(json))
-        .toList();
-  }
-
-  Future<DrillGroup> createDrillGroup(DrillGroup drillGroup) async {
-    final response = await _client.post(
-      '/practice/drill-groups',
-      drillGroup.toJson(),
-    );
-    return DrillGroup.fromJson(response.data);
-  }
-
-  Future<DrillGroup> updateDrillGroup(DrillGroup drillGroup) async {
-    final response = await _client.put(
-      '/practice/drill-groups/${drillGroup.id}',
-      drillGroup.toJson(),
-    );
-    return DrillGroup.fromJson(response.data);
-  }
-
-  Future<void> deleteDrillGroup(int groupId) async {
-    await _client.delete('/practice/drill-groups/$groupId');
-  }
+  // Note: Drill Groups functionality moved to DrillGroupApi
 
   // Practice Sessions
   Future<List<Session>> getSessions() async {

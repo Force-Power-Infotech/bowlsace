@@ -1,6 +1,6 @@
 class ApiConfig {
   static const String baseUrl = 'http://ledboard.forcempower.com:8000/api/v1';
-  // static const String baseUrl = 'http://localhost:8000/api/v1';
+
   // Auth endpoints
   static const String login = '/auth/login';
   static const String register = '/auth/register';
@@ -16,14 +16,12 @@ class ApiConfig {
   // Dashboard endpoints
   static const String dashboard = '/dashboard';
 
-  // Practice session endpoints
+  // Practice endpoints
+  static const String drills = '/drills';
+  static const String drillGroups = '/drill-groups';
   static const String practiceSession = '/practice/sessions';
 
   // Challenge endpoints
   static const String challenges = '/challenge';
   static const String acceptChallenge = '/challenge/{id}/accept';
-
-  // Drill endpoints
-  static const String drills = '/drill';
-  static const String drillGroups = '/drill-groups';
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../models/drill_group.dart';
 import '../../../providers/practice_provider.dart';
 import '../../../di/service_locator.dart';
 import '../../../repositories/practice_repository.dart';
@@ -17,61 +16,19 @@ class _CreateDrillGroupScreenState extends State<CreateDrillGroupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _imageUrlController = TextEditingController();
   final _tagsController = TextEditingController();
-
-  String _selectedCategory = 'Beginner';
   double _difficulty = 3.0;
-  Color _accentColor = Colors.blue;
   bool _isLoading = false;
 
   final PracticeRepository _practiceRepository = getIt<PracticeRepository>();
   final ApiErrorHandler _errorHandler = getIt<ApiErrorHandler>();
 
-  final List<String> _categories = [
-    'Beginner',
-    'Intermediate',
-    'Advanced',
-    'Expert',
-    'Custom',
-  ];
-
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _imageUrlController.dispose();
     _tagsController.dispose();
     super.dispose();
-  }
-
-  void _pickColor() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Pick a color'),
-          content: SingleChildScrollView(
-            child: ColorPicker(
-              pickerColor: _accentColor,
-              onColorChanged: (Color color) {
-                setState(() {
-                  _accentColor = color;
-                });
-              },
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Done'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _createDrillGroup() async {
@@ -90,31 +47,27 @@ class _CreateDrillGroupScreenState extends State<CreateDrillGroupScreen> {
           .where((tag) => tag.isNotEmpty)
           .toList();
 
-      final drillGroup = DrillGroup(
-        id: DateTime.now().millisecondsSinceEpoch, // Temporary ID
-        name: _nameController.text,
-        description: _descriptionController.text,
-        imageUrl: _imageUrlController.text,
-        accentColor: _accentColor,
-        drills: [], // Start with empty drills list
-        createdAt: DateTime.now(),
-        isCustom: true,
-        category: _selectedCategory,
-        totalDuration: 0, // Will be updated when drills are added
-        difficulty: _difficulty,
-        tags: tags,
-      );
+      final groupData = {
+        'name': _nameController.text,
+        'description': _descriptionController.text,
+        'is_public': true,
+        'difficulty': _difficulty.toInt(),
+        'tags': tags,
+        'drill_ids': [], // Fixed: using drill_ids instead of drills to match API
+      };
 
-      // Save to repository
-      await _practiceRepository.createDrillGroup(drillGroup);
+      // Create drill group using repository
+      final createdGroup = await _practiceRepository.createDrillGroup(
+        groupData,
+      );
 
       if (!mounted) return;
 
-      // Update provider
+      // Update provider with the created group
       Provider.of<PracticeProvider>(
         context,
         listen: false,
-      ).addDrillGroup(drillGroup);
+      ).addDrillGroup(createdGroup);
 
       // Show success and pop
       ScaffoldMessenger.of(context).showSnackBar(
@@ -179,40 +132,6 @@ class _CreateDrillGroupScreenState extends State<CreateDrillGroupScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Image URL
-                    TextFormField(
-                      controller: _imageUrlController,
-                      decoration: const InputDecoration(
-                        labelText: 'Cover Image URL*',
-                        hintText: 'Enter a URL for the cover image',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter an image URL';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Category Dropdown
-                    DropdownButtonFormField<String>(
-                      value: _selectedCategory,
-                      decoration: const InputDecoration(labelText: 'Category'),
-                      items: _categories.map((category) {
-                        return DropdownMenuItem(
-                          value: category,
-                          child: Text(category),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedCategory = value!;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
                     // Difficulty Slider
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,8 +144,8 @@ class _CreateDrillGroupScreenState extends State<CreateDrillGroupScreen> {
                           value: _difficulty,
                           min: 1,
                           max: 5,
-                          divisions: 8,
-                          label: _difficulty.toStringAsFixed(1),
+                          divisions: 4,
+                          label: _difficulty.toStringAsFixed(0),
                           onChanged: (value) {
                             setState(() {
                               _difficulty = value;
@@ -243,18 +162,6 @@ class _CreateDrillGroupScreenState extends State<CreateDrillGroupScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Tags',
                         hintText: 'Enter tags separated by commas',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Color Picker Button
-                    ElevatedButton.icon(
-                      onPressed: _pickColor,
-                      icon: Icon(Icons.color_lens, color: _accentColor),
-                      label: const Text('Choose Accent Color'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _accentColor.withOpacity(0.1),
-                        foregroundColor: _accentColor,
                       ),
                     ),
                     const SizedBox(height: 24),

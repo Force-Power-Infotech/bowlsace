@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../di/service_locator.dart';
@@ -53,30 +54,72 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkAuthStatus() async {
-    // Add a small delay to show the splash screen
-    await Future.delayed(const Duration(seconds: 2));
+    developer.log('Starting auth check in splash screen');
 
     try {
+      // Show animations for at least 2 seconds
+      await Future.delayed(const Duration(seconds: 2));
+
+      developer.log('Attempting auto-login...');
       final isLoggedIn = await _authRepository.attemptAutoLogin();
+      developer.log('Auto-login result: $isLoggedIn');
+
+      if (!mounted) {
+        developer.log('Widget not mounted after auto-login check');
+        return;
+      }
 
       if (isLoggedIn) {
-        // Get user data and update provider
-        final user = await _authRepository.getCurrentUser();
-        if (!mounted) return;
+        developer.log('User is logged in, fetching current user data...');
 
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
-        userProvider.setUser(user);
+        try {
+          // Try to get fresh user data
+          final user = await _authRepository.getCurrentUser();
+          developer.log('Successfully fetched user data: ${user.toString()}');
 
-        // Navigate to dashboard
-        if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed('/dashboard');
+          if (!mounted) return;
+
+          // Update the user provider with the fresh data
+          final userProvider = Provider.of<UserProvider>(
+            context,
+            listen: false,
+          );
+          userProvider.setUser(user);
+
+          developer.log('Navigating to dashboard...');
+          Navigator.of(context).pushReplacementNamed('/dashboard');
+        } catch (userError) {
+          developer.log('Error fetching user data: $userError');
+
+          // Even if getting fresh data fails, we can still proceed if we have cached user
+          final cachedUser = _authRepository.currentUser;
+          if (cachedUser != null) {
+            developer.log('Using cached user data: ${cachedUser.toString()}');
+            if (!mounted) return;
+
+            final userProvider = Provider.of<UserProvider>(
+              context,
+              listen: false,
+            );
+            userProvider.setUser(cachedUser);
+
+            developer.log('Navigating to dashboard with cached data...');
+            Navigator.of(context).pushReplacementNamed('/dashboard');
+            return;
+          }
+
+          // If we have no user data at all, go to login
+          developer.log('No cached user data available, redirecting to login');
+          if (!mounted) return;
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
       } else {
-        // Navigate to login
+        developer.log('User is not logged in, redirecting to login screen');
         if (!mounted) return;
         Navigator.of(context).pushReplacementNamed('/login');
       }
     } catch (e) {
-      // If there's any error, go to login
+      developer.log('Error during auth check: $e');
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/login');
     }
@@ -165,13 +208,8 @@ class _SplashScreenState extends State<SplashScreen>
               // Loading indicator
               FadeTransition(
                 opacity: _fadeAnimation,
-                child: const SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    strokeWidth: 3,
-                  ),
+                child: const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
             ],
