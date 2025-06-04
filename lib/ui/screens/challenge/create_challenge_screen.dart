@@ -89,26 +89,32 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
           id: 1,
           name: 'Draw Shot',
           description: 'Deliver your bowl as close as possible to the jack',
-          difficulty: 2,
+          difficulty: 2.0,
           tags: ['Accuracy', 'Control'],
           createdAt: DateTime.now(),
+          imageUrl: 'assets/images/drills/draw_shot.jpg',
+          durationMinutes: 15,
         ),
         Drill(
           id: 2,
           name: 'Drive Shot',
           description: 'A fast and powerful shot to remove opponent\'s bowls',
-          difficulty: 3,
+          difficulty: 3.0,
           tags: ['Power', 'Speed'],
           createdAt: DateTime.now(),
+          imageUrl: 'assets/images/drills/drive_shot.jpg',
+          durationMinutes: 20,
         ),
         Drill(
           id: 3,
           name: 'Trail Shot',
           description:
               'Move the jack to a new position while following with your bowl',
-          difficulty: 4,
+          difficulty: 4.0,
           tags: ['Precision', 'Advanced'],
           createdAt: DateTime.now(),
+          imageUrl: 'assets/images/drills/trail_shot.jpg',
+          durationMinutes: 25,
         ),
       ];
       _isLoadingDrills = false;
@@ -445,20 +451,11 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     );
   }
 
-  String _getDifficultyText(int level) {
-    switch (level) {
-      case 1:
-        return 'Easy';
-      case 2:
-        return 'Moderate';
-      case 3:
-        return 'Challenging';
-      case 4:
-        return 'Difficult';
-      case 5:
-        return 'Expert';
-      default:
-        return 'Unknown';
-    }
+  String _getDifficultyText(double level) {
+    if (level <= 1.5) return 'Easy';
+    if (level <= 2.5) return 'Moderate';
+    if (level <= 3.5) return 'Challenging';
+    if (level <= 4.5) return 'Difficult';
+    return 'Expert';
   }
 }

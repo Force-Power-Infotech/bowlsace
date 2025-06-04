@@ -59,13 +59,10 @@ class _PracticeListScreenState extends State<PracticeListScreen> {
     });
 
     try {
-      final practiceProvider = Provider.of<PracticeProvider>(
-        context,
-        listen: false,
-      );
-      practiceProvider.setLoading(true);
+      final provider = Provider.of<PracticeProvider>(context, listen: false);
+      provider.setLoading(true);
 
-      // Load all practice sessions
+      // Load practice sessions
       final sessions = await _practiceRepository.getSessions();
 
       if (!mounted) return;
@@ -73,7 +70,8 @@ class _PracticeListScreenState extends State<PracticeListScreen> {
       // Sort by date (most recent first)
       sessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      practiceProvider.setSessions(sessions);
+      // Update sessions in provider
+      provider.setSessions(sessions);
 
       setState(() {
         _hasMoreData = sessions.length >= _pageSize;
@@ -86,16 +84,17 @@ class _PracticeListScreenState extends State<PracticeListScreen> {
       });
     } finally {
       if (mounted) {
+        final provider = Provider.of<PracticeProvider>(context, listen: false);
+        provider.setLoading(false);
         setState(() {
           _isLoading = false;
         });
-        Provider.of<PracticeProvider>(context, listen: false).setLoading(false);
       }
     }
   }
 
   Future<void> _loadMoreSessions() async {
-    if (_isLoadingMore || !_hasMoreData || !mounted) return;
+    if (_isLoadingMore || !_hasMoreData) return;
 
     setState(() {
       _isLoadingMore = true;
@@ -103,21 +102,17 @@ class _PracticeListScreenState extends State<PracticeListScreen> {
 
     try {
       final nextPage = _currentPage + 1;
-      // Implement pagination in your API and repository
-      // This is a placeholder for now - would need to add pagination in repository
-      // final moreSessions = await _practiceRepository.getSessions(page: nextPage, pageSize: _pageSize);
-
-      // For now we'll just simulate no more data
-      await Future.delayed(const Duration(milliseconds: 500));
-      final moreSessions = <Session>[];
+      final moreSessions = await _practiceRepository.getSessions();
 
       if (moreSessions.isNotEmpty) {
-        final practiceProvider = Provider.of<PracticeProvider>(
-          context,
-          listen: false,
-        );
-        final allSessions = [...practiceProvider.sessions, ...moreSessions];
-        practiceProvider.setSessions(allSessions);
+        final provider = Provider.of<PracticeProvider>(context, listen: false);
+
+        // Sort by date and combine with existing sessions
+        moreSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final allSessions = [...provider.sessions, ...moreSessions];
+
+        // Update provider
+        provider.setSessions(allSessions);
 
         setState(() {
           _currentPage = nextPage;

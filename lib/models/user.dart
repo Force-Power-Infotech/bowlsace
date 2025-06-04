@@ -1,24 +1,24 @@
 class User {
   final int id;
-  final String username;
-  final String email;
+  final String? username;
+  final String? email;
   final String phoneNumber;
   final String? phone;
   final String? firstName;
   final String? lastName;
   final String? profilePictureUrl;
-  final DateTime createdAt;
+  final DateTime? createdAt;
 
   User({
     required this.id,
-    required this.username,
-    required this.email,
+    this.username,
+    this.email,
     required this.phoneNumber,
     this.phone,
     this.firstName,
     this.lastName,
     this.profilePictureUrl,
-    required this.createdAt,
+    this.createdAt,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -31,21 +31,23 @@ class User {
       firstName: json['first_name'],
       lastName: json['last_name'],
       profilePictureUrl: json['profile_picture_url'],
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'username': username,
-      'email': email,
+      if (username != null) 'username': username,
+      if (email != null) 'email': email,
       'phone_number': phoneNumber,
-      'phone': phone,
-      'first_name': firstName,
-      'last_name': lastName,
-      'profile_picture_url': profilePictureUrl,
-      'created_at': createdAt.toIso8601String(),
+      if (phone != null) 'phone': phone,
+      if (firstName != null) 'first_name': firstName,
+      if (lastName != null) 'last_name': lastName,
+      if (profilePictureUrl != null) 'profile_picture_url': profilePictureUrl,
+      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
     };
   }
 }

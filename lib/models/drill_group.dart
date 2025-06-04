@@ -1,22 +1,33 @@
+import 'package:flutter/material.dart';
 import 'drill.dart';
 
 class DrillGroup {
   final int id;
   final String name;
   final String description;
-  final String? imageUrl;
-  final List<Drill>? drills;
-  final int createdBy;
+  final String imageUrl;
+  final Color accentColor;
+  final List<Drill> drills;
   final DateTime createdAt;
+  final bool isCustom;
+  final String? category; // e.g., 'Beginner', 'Advanced', etc.
+  final int totalDuration; // Total minutes of all drills
+  final double difficulty; // 1-5 scale
+  final List<String> tags;
 
   DrillGroup({
     required this.id,
     required this.name,
     required this.description,
-    this.imageUrl,
-    this.drills,
-    required this.createdBy,
+    required this.imageUrl,
+    required this.accentColor,
+    required this.drills,
     required this.createdAt,
+    this.isCustom = false,
+    this.category,
+    required this.totalDuration,
+    required this.difficulty,
+    required this.tags,
   });
 
   factory DrillGroup.fromJson(Map<String, dynamic> json) {
@@ -25,11 +36,16 @@ class DrillGroup {
       name: json['name'],
       description: json['description'],
       imageUrl: json['image_url'],
-      drills: json['drills'] != null
-          ? (json['drills'] as List).map((e) => Drill.fromJson(e)).toList()
-          : null,
-      createdBy: json['created_by'],
+      accentColor: Color(json['accent_color']),
+      drills: (json['drills'] as List)
+          .map((drill) => Drill.fromJson(drill))
+          .toList(),
       createdAt: DateTime.parse(json['created_at']),
+      isCustom: json['is_custom'] ?? false,
+      category: json['category'],
+      totalDuration: json['total_duration'] ?? 0,
+      difficulty: (json['difficulty'] ?? 3.0).toDouble(),
+      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 
@@ -39,9 +55,14 @@ class DrillGroup {
       'name': name,
       'description': description,
       'image_url': imageUrl,
-      'created_by': createdBy,
+      'accent_color': accentColor.value,
+      'drills': drills.map((drill) => drill.toJson()).toList(),
       'created_at': createdAt.toIso8601String(),
-      if (drills != null) 'drills': drills!.map((e) => e.toJson()).toList(),
+      'is_custom': isCustom,
+      'category': category,
+      'total_duration': totalDuration,
+      'difficulty': difficulty,
+      'tags': tags,
     };
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../di/service_locator.dart';
+import '../../../models/user.dart';
 import '../../../repositories/auth_repository.dart';
 import '../../../api/api_error_handler.dart';
 import '../../../providers/user_provider.dart';
@@ -75,34 +76,26 @@ class _LoginScreenState extends State<LoginScreen> {
         _otpController.text,
       );
 
+      if (!mounted) return;
+
       if (response['success'] == true) {
-        // Get user data from response and update provider
-        try {
-          // final userProvider = Provider.of<UserProvider>(
-          //   context,
-          //   listen: false,
-          // );
-          // if (response['user_data'] != null) {
-          //   userProvider.setUser(response['user_data']);
-          // }
-
-          if (!mounted) return;
-
-          // Clear navigation stack and go to dashboard
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/dashboard', (route) => false);
-        } catch (e) {
-          if (!mounted) return;
-
-          // If user data handling fails, logout and show error
-          await _authRepository.logout();
-          setState(() {
-            _errorMessage = 'Failed to process user data. Please try again.';
-            _isLoading = false;
-            _otpSent = false;
-          });
+        // Update user data if available
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        if (response['user_data'] != null) {
+          try {
+            final userData = User.fromJson(
+              response['user_data'] as Map<String, dynamic>,
+            );
+            userProvider.setUser(userData);
+          } catch (e) {
+            debugPrint('Error parsing user data: $e');
+          }
         }
+
+        // Navigate to dashboard even if user data parsing failed
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/dashboard', (route) => false);
       } else {
         setState(() {
           _errorMessage =
@@ -115,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       _errorHandler.handleAuthError(e);
       setState(() {
-        _errorMessage = 'Invalid OTP. Please try again.';
+        _errorMessage = 'Failed to verify OTP. Please try again.';
         _isLoading = false;
       });
     }

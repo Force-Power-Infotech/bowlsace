@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../di/service_locator.dart';
-import '../../../models/user.dart';
+
 import '../../../providers/user_provider.dart';
 import '../../../providers/practice_provider.dart';
 import '../../../repositories/auth_repository.dart';
@@ -30,26 +30,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadDashboardData() async {
-    if (!mounted) return;
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      // Load user data
-      final user = await _authRepository.getCurrentUser();
-      if (!mounted) return;
-      Provider.of<UserProvider>(context, listen: false).setUser(user);
-
-      // Load recent practice sessions
-      final sessions = await _practiceRepository.getRecentSessions(limit: 5);
-      if (!mounted) return;
-      Provider.of<PracticeProvider>(
-        context,
-        listen: false,
-      ).setSessions(sessions);
+      // Load user data and recent practice sessions
+      await Future.wait([_loadUserData(), _loadPracticeSessions()]);
     } catch (e) {
       _errorHandler.handleError(e);
       if (!mounted) return;
@@ -65,6 +53,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _loadUserData() async {
+    if (!mounted) return;
+    final user = await _authRepository.getCurrentUser();
+    if (!mounted) return;
+    Provider.of<UserProvider>(context, listen: false).setUser(user);
+  }
+
+  Future<void> _loadPracticeSessions() async {
+    if (!mounted) return;
+    final sessions = await _practiceRepository.getRecentSessions(limit: 5);
+    if (!mounted) return;
+    Provider.of<PracticeProvider>(context, listen: false).setSessions(sessions);
+  }
+
   void _startNewPractice() {
     Navigator.of(context).pushNamed('/practice/new');
   }
@@ -77,163 +79,226 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Navigator.of(context).pushNamed('/challenge/list');
   }
 
-  void _logout() async {
+  Future<void> _logout() async {
     setState(() {
       _isLoading = true;
     });
 
-    await _authRepository.logout();
+    try {
+      await _authRepository.logout();
 
-    // Clear all providers
-    if (!mounted) return;
-    Provider.of<UserProvider>(context, listen: false).clearUser();
-    Provider.of<PracticeProvider>(context, listen: false).clearSessions();
+      if (!mounted) return;
+      // Clear all providers
+      Provider.of<UserProvider>(context, listen: false).clearUser();
+      Provider.of<PracticeProvider>(context, listen: false).clearSessions();
 
-    // Navigate to login
-    if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+      // Navigate to login
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    } catch (e) {
+      _errorHandler.handleError(e);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Access the user data from provider
     final userProvider = Provider.of<UserProvider>(context);
     final practiceProvider = Provider.of<PracticeProvider>(context);
+    final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () => Navigator.of(context).pushNamed('/profile'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _isLoading ? null : _logout,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_errorMessage!),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadDashboardData,
+              child: const Text('Try Again'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadDashboardData,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Modern app bar with user info
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(_errorMessage!),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _loadDashboardData,
-                    child: const Text('Try Again'),
+                  if (userProvider.user != null) ...[
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome back',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          userProvider.user!.firstName ??
+                              userProvider.user!.username ??
+                              'Bowler',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: _logout,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.logout_rounded,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // Quick action buttons
+          SliverPadding(
+            padding: const EdgeInsets.all(20),
+            sliver: SliverGrid(
+              delegate: SliverChildListDelegate([
+                _QuickActionCard(
+                  icon: Icons.fitness_center,
+                  label: 'Start Practice',
+                  description: 'Begin a new practice session',
+                  onTap: _startNewPractice,
+                  color: theme.colorScheme.primary,
+                ),
+                _QuickActionCard(
+                  icon: Icons.emoji_events,
+                  label: 'Challenges',
+                  description: 'View and accept challenges',
+                  onTap: _viewAllChallenges,
+                  color: theme.colorScheme.secondary,
+                ),
+                _QuickActionCard(
+                  icon: Icons.history,
+                  label: 'History',
+                  description: 'View practice history',
+                  onTap: _viewAllPractices,
+                  color: theme.colorScheme.tertiary,
+                ),
+              ]),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 1.3,
+              ),
+            ),
+          ),
+
+          // Recent sessions title
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            sliver: SliverToBoxAdapter(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Recent Sessions', style: theme.textTheme.titleLarge),
+                  TextButton(
+                    onPressed: _viewAllPractices,
+                    child: const Text('View All'),
                   ),
                 ],
               ),
-            )
-          : RefreshIndicator(
-              onRefresh: _loadDashboardData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // User greeting
-                    if (userProvider.user != null)
-                      Text(
-                        'Welcome, ${userProvider.user!.firstName ?? userProvider.user!.username}!',
-                        style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ),
+
+          // Recent sessions list
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: practiceProvider.sessions.isEmpty
+                ? SliverToBoxAdapter(
+                    child: Card(
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        height: 100,
+                        child: const Center(
+                          child: Text('No recent practice sessions'),
+                        ),
                       ),
-                    const SizedBox(height: 24),
-
-                    // Quick action buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _QuickActionButton(
-                          icon: Icons.fitness_center,
-                          label: 'New Practice',
-                          onTap: _startNewPractice,
-                        ),
-                        _QuickActionButton(
-                          icon: Icons.emoji_events,
-                          label: 'Challenges',
-                          onTap: _viewAllChallenges,
-                        ),
-                        _QuickActionButton(
-                          icon: Icons.history,
-                          label: 'History',
-                          onTap: _viewAllPractices,
-                        ),
-                      ],
                     ),
-                    const SizedBox(height: 32),
-
-                    // Recent practice sessions
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Recent Practice Sessions',
-                          style: Theme.of(context).textTheme.titleLarge,
+                  )
+                : SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final session = practiceProvider.sessions[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        TextButton(
-                          onPressed: _viewAllPractices,
-                          child: const Text('View All'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // List of recent sessions
-                    practiceProvider.sessions.isEmpty
-                        ? const Card(
-                            child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Center(
-                                child: Text('No recent practice sessions'),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(16),
+                          title: Text(
+                            session.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            '${session.durationMinutes} mins • ${session.location ?? 'No location'}',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.6,
                               ),
                             ),
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: practiceProvider.sessions.length,
-                            itemBuilder: (context, index) {
-                              final session = practiceProvider.sessions[index];
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: ListTile(
-                                  title: Text(session.name),
-                                  subtitle: Text(
-                                    '${session.durationMinutes} mins • ${session.location ?? 'No location'}',
-                                  ),
-                                  trailing: Text(
-                                    _formatDate(session.createdAt),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                  onTap: () => Navigator.of(context).pushNamed(
-                                    '/practice/details',
-                                    arguments: session,
-                                  ),
-                                ),
-                              );
-                            },
                           ),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                _formatDate(session.createdAt),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pushNamed('/practice/details', arguments: session),
+                        ),
+                      );
+                    }, childCount: practiceProvider.sessions.length),
+                  ),
+          ),
 
-                    const SizedBox(height: 32),
-
-                    // Add more sections as needed
-                  ],
-                ),
-              ),
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _startNewPractice,
-        icon: const Icon(Icons.add),
-        label: const Text('New Practice'),
+          // Bottom padding
+          const SliverPadding(padding: EdgeInsets.only(bottom: 20)),
+        ],
       ),
     );
   }
@@ -243,34 +308,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class _QuickActionButton extends StatelessWidget {
+class _QuickActionCard extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String description;
   final VoidCallback onTap;
+  final Color color;
 
-  const _QuickActionButton({
+  const _QuickActionCard({
     required this.icon,
     required this.label,
+    required this.description,
     required this.onTap,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 32, color: Theme.of(context).primaryColor),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(height: 8),
-          Text(label),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 32, color: color),
+              const Spacer(),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(fontSize: 12, color: color.withOpacity(0.8)),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

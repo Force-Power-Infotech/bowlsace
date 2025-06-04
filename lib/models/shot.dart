@@ -22,7 +22,9 @@ class Shot {
       id: json['id'],
       sessionId: json['session_id'],
       drillType: json['drill_type'],
-      result: ShotResult.values.byName(json['result'].toLowerCase()),
+      result: ShotResult.values.firstWhere(
+        (e) => e.toString() == 'ShotResult.${json['result']}',
+      ),
       notes: json['notes'],
       timestamp: DateTime.parse(json['timestamp']),
     );
@@ -33,7 +35,7 @@ class Shot {
       'id': id,
       'session_id': sessionId,
       'drill_type': drillType,
-      'result': result.name,
+      'result': result.toString().split('.').last,
       'notes': notes,
       'timestamp': timestamp.toIso8601String(),
     };

@@ -10,15 +10,41 @@ class AuthRepository {
 
   AuthRepository(this._authApi, this._secureStorage);
 
+  // Check for persistent login and attempt auto-login
+  Future<bool> attemptAutoLogin() async {
+    try {
+      // Check if we have stored credentials
+      final phoneNumber = await _secureStorage.read(key: 'phone_number');
+      final token = await _secureStorage.read(key: 'auth_token');
+
+      if (phoneNumber != null && token != null) {
+        // Verify token by trying to get current user
+        final userData = await _authApi.getCurrentUser();
+        _currentUser = User.fromJson(userData);
+        _isAuthenticated = true;
+        return true;
+      }
+      return false;
+    } catch (e) {
+      // Clear any stored data if auto-login fails
+      await _secureStorage.delete(key: 'phone_number');
+      await _secureStorage.delete(key: 'auth_token');
+      _isAuthenticated = false;
+      _currentUser = null;
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     _currentUser = null;
     _isAuthenticated = false;
     await _secureStorage.delete(key: 'phone_number');
+    await _secureStorage.delete(key: 'auth_token');
   }
 
   Future<bool> isLoggedIn() async {
-    final phoneNumber = await _secureStorage.read(key: 'phone_number');
-    return _isAuthenticated && phoneNumber != null;
+    if (_isAuthenticated && _currentUser != null) return true;
+    return await attemptAutoLogin();
   }
 
   Future<bool> requestOtp(String phoneNumber) async {
@@ -36,11 +62,18 @@ class AuthRepository {
       final response = await _authApi.verifyOtp(phoneNumber, otp);
       if (response['success'] == true) {
         _isAuthenticated = true;
-        // Store the verified phone number
+
+        // Store auth data
         await _secureStorage.write(key: 'phone_number', value: phoneNumber);
+        if (response['access_token'] != null) {
+          await _secureStorage.write(
+            key: 'auth_token',
+            value: response['access_token'],
+          );
+        }
+
         // Store user data if available
         if (response['user_data'] != null) {
-          // You might want to update your User model to handle this data
           _currentUser = User.fromJson(response['user_data']);
         }
       }

@@ -8,17 +8,52 @@ class AuthApi {
   AuthApi(this._apiClient);
 
   Future<Map<String, dynamic>> requestOtp(String phoneNumber) async {
-    // API expects phone_number as a query parameter
-    return await _apiClient.post(
-      '${ApiConfig.requestOtp}?phone_number=$phoneNumber',
-      {},
-    );
+    try {
+      final response = await _apiClient.post(ApiConfig.requestOtp, {
+        'phone_number': phoneNumber,
+      });
+
+      if (!response.containsKey('success')) {
+        throw ApiException(
+          statusCode: 500,
+          message: 'Invalid response format from server',
+        );
+      }
+
+      return response;
+    } on ApiException catch (e) {
+      if (e.statusCode == 429) {
+        throw ApiException(
+          statusCode: 429,
+          message: 'Too many OTP requests. Please wait before trying again.',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> verifyOtp(String phoneNumber, String otp) async {
-    final data = {'phone_number': phoneNumber, 'otp': otp};
-    final response = await _apiClient.post(ApiConfig.verifyOtp, data);
-    return response;
+    try {
+      final data = {'phone_number': phoneNumber, 'otp': otp};
+      final response = await _apiClient.post(ApiConfig.verifyOtp, data);
+
+      if (!response.containsKey('success')) {
+        throw ApiException(
+          statusCode: 500,
+          message: 'Invalid response format from server',
+        );
+      }
+
+      return response;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401) {
+        throw ApiException(
+          statusCode: 401,
+          message: 'Invalid or expired OTP code. Please request a new one.',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> getCurrentUser() async {

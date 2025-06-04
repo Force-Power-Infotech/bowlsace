@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../di/service_locator.dart';
 import '../../../models/practice_session.dart';
+import '../../../models/drill_group.dart';
+import '../../../models/drill.dart';
 import '../../../providers/practice_provider.dart';
 import '../../../repositories/practice_repository.dart';
 import '../../../api/api_error_handler.dart';
 
 class CreatePracticeScreen extends StatefulWidget {
-  const CreatePracticeScreen({super.key});
+  final DrillGroup? drillGroup;
+  final Drill? selectedDrill;
+
+  const CreatePracticeScreen({super.key, this.drillGroup, this.selectedDrill});
 
   @override
   State<CreatePracticeScreen> createState() => _CreatePracticeScreenState();
@@ -59,10 +64,8 @@ class _CreatePracticeScreenState extends State<CreatePracticeScreen> {
 
       if (!mounted) return;
 
-      // Add the new session to the provider
-      final provider = Provider.of<PracticeProvider>(context, listen: false);
-      provider.addSession(session);
-      provider.setCurrentSession(session);
+      // Use the provider to add the new session
+      Provider.of<PracticeProvider>(context, listen: false).addSession(session);
 
       // Navigate to the practice details screen
       Navigator.of(

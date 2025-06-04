@@ -55,18 +55,20 @@ class _PracticeDetailsScreenState extends State<PracticeDetailsScreen>
     });
 
     try {
-      // The repository should have a method to get a single session with details
-      // For now we'll use the current provider session
-      final provider = Provider.of<PracticeProvider>(context, listen: false);
-      if (provider.currentSession?.id != widget.session.id) {
-        provider.setCurrentSession(widget.session);
+      // Get updated session from repository
+      final sessions = await _practiceRepository.getSessions();
+      final updatedSession = sessions.firstWhere(
+        (s) => s.id == widget.session.id,
+        orElse: () => widget.session,
+      );
+
+      // Update the current session in the provider without setState
+      if (mounted) {
+        Provider.of<PracticeProvider>(
+          context,
+          listen: false,
+        ).setCurrentSession(updatedSession);
       }
-
-      // If needed, you could implement a method to load more details
-      // Like: final sessionDetails = await _practiceRepository.getSessionDetails(widget.session.id);
-
-      // For demonstration purposes, we'll simulate a delay
-      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       _errorHandler.handleError(e);
       if (!mounted) return;
@@ -95,9 +97,9 @@ class _PracticeDetailsScreenState extends State<PracticeDetailsScreen>
     });
 
     try {
-      // Create a new shot
+      // Create shot data
       final shot = Shot(
-        id: -DateTime.now().millisecondsSinceEpoch, // Temporary ID until synced
+        id: 0, // Will be set by the backend
         sessionId: widget.session.id,
         drillType: _drillTypeController.text,
         result: _selectedResult,
@@ -110,18 +112,16 @@ class _PracticeDetailsScreenState extends State<PracticeDetailsScreen>
       // Add to repository
       await _practiceRepository.addShot(widget.session.id, shot);
 
-      // Update the current session in the provider
-      if (!mounted) return;
-
+      // Get updated session and update provider
       final provider = Provider.of<PracticeProvider>(context, listen: false);
-      // Get sessions from repository and find the updated one
       final sessions = await _practiceRepository.getSessions();
       final updatedSession = sessions.firstWhere(
         (s) => s.id == widget.session.id,
         orElse: () => widget.session,
       );
 
-      provider.setCurrentSession(updatedSession);
+      // Use provider method to update
+      provider.updateSession(updatedSession);
 
       // Clear inputs
       _drillTypeController.clear();
@@ -131,9 +131,11 @@ class _PracticeDetailsScreenState extends State<PracticeDetailsScreen>
       });
 
       // Show success message
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Shot recorded')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Shot recorded')));
+      }
     } catch (e) {
       _errorHandler.handleError(e);
       if (!mounted) return;

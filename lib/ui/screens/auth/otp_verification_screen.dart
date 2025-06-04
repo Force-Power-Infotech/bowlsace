@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../models/user.dart';
+import '../../../api/api_error_handler.dart';
 import '../../../repositories/auth_repository.dart';
 import '../../../providers/user_provider.dart';
-import '../../../api/api_error_handler.dart';
 import '../../../di/service_locator.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -58,10 +59,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         // Get user data from response
         final userProvider = Provider.of<UserProvider>(context, listen: false);
         if (response['user_data'] != null) {
-          userProvider.setUser(response['user_data']);
+          try {
+            final userData = User.fromJson(
+              response['user_data'] as Map<String, dynamic>,
+            );
+            userProvider.setUser(userData);
+          } catch (e) {
+            debugPrint('Error parsing user data: $e');
+          }
         }
 
-        // Navigate to dashboard
+        // Navigate to dashboard regardless of user data parsing success
         Navigator.of(
           context,
         ).pushNamedAndRemoveUntil('/dashboard', (route) => false);

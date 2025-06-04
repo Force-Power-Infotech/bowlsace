@@ -1,64 +1,85 @@
 import '../api_client.dart';
 import '../../models/practice_session.dart';
+import '../../models/drill_group.dart';
 import '../../models/shot.dart';
-import '../api_config.dart';
 
 class PracticeApi {
-  final ApiClient _apiClient;
+  final ApiClient _client;
 
-  PracticeApi(this._apiClient);
+  PracticeApi(this._client);
 
-  Future<List<Session>> getSessions({int limit = 10}) async {
-    final response = await _apiClient.get(
-      '${ApiConfig.practiceSession}?limit=$limit',
-    );
-    return (response as List).map((item) => Session.fromJson(item)).toList();
+  // Drill Groups
+  Future<List<DrillGroup>> getDrillGroups() async {
+    final response = await _client.get('/practice/drill-groups');
+    return (response.data as List)
+        .map((json) => DrillGroup.fromJson(json))
+        .toList();
   }
 
-  Future<Session> createSession(SessionCreate sessionData) async {
-    final response = await _apiClient.post(
-      ApiConfig.practiceSession,
-      sessionData.toJson(),
+  Future<DrillGroup> createDrillGroup(DrillGroup drillGroup) async {
+    final response = await _client.post(
+      '/practice/drill-groups',
+      drillGroup.toJson(),
     );
-    return Session.fromJson(response);
+    return DrillGroup.fromJson(response.data);
   }
 
-  Future<Session> updateSession(int sessionId, SessionUpdate data) async {
-    final response = await _apiClient.put(
-      '${ApiConfig.practiceSession}/$sessionId',
-      data.toJson(),
+  Future<DrillGroup> updateDrillGroup(DrillGroup drillGroup) async {
+    final response = await _client.put(
+      '/practice/drill-groups/${drillGroup.id}',
+      drillGroup.toJson(),
     );
-    return Session.fromJson(response);
+    return DrillGroup.fromJson(response.data);
   }
 
-  Future<void> addShot(int sessionId, Shot shot) async {
-    await _apiClient.post(
-      '${ApiConfig.practiceSession}/$sessionId/shots',
-      shot.toJson(),
-    );
+  Future<void> deleteDrillGroup(int groupId) async {
+    await _client.delete('/practice/drill-groups/$groupId');
   }
 
-  Future<void> deleteSession(int sessionId) async {
-    await _apiClient.delete('${ApiConfig.practiceSession}/$sessionId');
+  // Practice Sessions
+  Future<List<Session>> getSessions() async {
+    final response = await _client.get('/practice/sessions');
+    return (response.data as List)
+        .map((json) => Session.fromJson(json))
+        .toList();
   }
 
   Future<List<Session>> getRecentSessions({int limit = 5}) async {
-    final response = await _apiClient.get(
-      '${ApiConfig.practiceSession}?limit=$limit&sort=recent',
+    final response = await _client.get(
+      '/practice/sessions',
+      queryParameters: {'limit': limit.toString(), 'sort': '-created_at'},
     );
-    return (response as List).map((item) => Session.fromJson(item)).toList();
+    return (response.data as List)
+        .map((json) => Session.fromJson(json))
+        .toList();
   }
 
-  Future<void> deleteShot(int sessionId, int shotId) async {
-    await _apiClient.delete(
-      '${ApiConfig.practiceSession}/$sessionId/shots/$shotId',
-    );
+  Future<Session> createSession(SessionCreate data) async {
+    final response = await _client.post('/practice/sessions', data.toJson());
+    return Session.fromJson(response.data);
+  }
+
+  Future<void> updateSession(int sessionId, SessionUpdate update) async {
+    await _client.put('/practice/sessions/$sessionId', update.toJson());
+  }
+
+  Future<void> deleteSession(int sessionId) async {
+    await _client.delete('/practice/sessions/$sessionId');
+  }
+
+  // Shot Management
+  Future<void> addShot(int sessionId, Shot shot) async {
+    await _client.post('/practice/sessions/$sessionId/shots', shot.toJson());
   }
 
   Future<void> updateShot(int sessionId, Shot shot) async {
-    await _apiClient.put(
-      '${ApiConfig.practiceSession}/$sessionId/shots/${shot.id}',
+    await _client.put(
+      '/practice/sessions/$sessionId/shots/${shot.id}',
       shot.toJson(),
     );
+  }
+
+  Future<void> deleteShot(int sessionId, int shotId) async {
+    await _client.delete('/practice/sessions/$sessionId/shots/$shotId');
   }
 }

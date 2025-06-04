@@ -47,8 +47,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user != null) {
       _firstNameController.text = user.firstName ?? '';
       _lastNameController.text = user.lastName ?? '';
-      _emailController.text = user.email;
-      _phoneController.text = user.phone ?? '';
+      _emailController.text = user.email ?? '';
+      _phoneController.text = user.phone ?? user.phoneNumber;
     }
   }
 
@@ -150,6 +150,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  String _getAvatarText(User user) {
+    if (user.firstName?.isNotEmpty == true) {
+      return user.firstName![0].toUpperCase();
+    }
+    if (user.username?.isNotEmpty == true) {
+      return user.username![0].toUpperCase();
+    }
+    return user.phoneNumber[0].toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
@@ -201,9 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       radius: 50,
                       backgroundColor: Theme.of(context).primaryColor,
                       child: Text(
-                        user.firstName?.isNotEmpty == true
-                            ? user.firstName![0].toUpperCase()
-                            : user.username[0].toUpperCase(),
+                        _getAvatarText(user),
                         style: const TextStyle(
                           fontSize: 40,
                           fontWeight: FontWeight.bold,
@@ -213,7 +221,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      user.username,
+                      user.username ?? user.phoneNumber,
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
