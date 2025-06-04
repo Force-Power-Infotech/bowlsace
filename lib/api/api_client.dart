@@ -207,14 +207,21 @@ class ApiClient {
     );
   }
 
-  Future<dynamic> post(String endpoint, dynamic data) async {
+  Future<dynamic> post(
+    String endpoint,
+    dynamic data, {
+    Map<String, String>? queryParameters,
+  }) async {
     return _withRetry(
       () async {
         final headers = await _getHeaders();
+        final uri = Uri.parse(
+          '$baseUrl$endpoint',
+        ).replace(queryParameters: queryParameters);
         final response = await _httpClient.post(
-          Uri.parse('$baseUrl$endpoint'),
+          uri,
           headers: headers,
-          body: json.encode(data),
+          body: data != null ? json.encode(data) : null,
         );
         return _handleResponse(response, 'POST', endpoint, data);
       },

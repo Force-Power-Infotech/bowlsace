@@ -9,9 +9,12 @@ class AuthApi {
 
   Future<Map<String, dynamic>> requestOtp(String phoneNumber) async {
     try {
-      final response = await _apiClient.post(ApiConfig.requestOtp, {
-        'phone_number': phoneNumber,
-      });
+      // Send phone_number as query parameter instead of request body
+      final response = await _apiClient.post(
+        ApiConfig.requestOtp,
+        null, // no request body needed
+        queryParameters: {'phone_number': phoneNumber},
+      );
 
       if (!response.containsKey('success')) {
         throw ApiException(
