@@ -34,7 +34,7 @@ class DrillGroupsScreen extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   Image.asset(
-                    'assets/images/practice_background.jpg',
+                    'assets/images/practicebg.png',
                     fit: BoxFit.cover,
                   ),
                   const DecoratedBox(

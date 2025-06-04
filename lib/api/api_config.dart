@@ -1,6 +1,6 @@
 class ApiConfig {
-  // static const String baseUrl = 'http://ledboard.forcempower.com:8000/api/v1';
-  static const String baseUrl = 'http://localhost:8000/api/v1';
+  static const String baseUrl = 'http://ledboard.forcempower.com:8000/api/v1';
+  // static const String baseUrl = 'http://localhost:8000/api/v1';
   // Auth endpoints
   static const String login = '/auth/login';
   static const String register = '/auth/register';
