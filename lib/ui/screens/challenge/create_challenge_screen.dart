@@ -85,37 +85,37 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     await Future.delayed(const Duration(milliseconds: 300));
     setState(() {
       _availableDrills = [
-        Drill(
-          id: 1,
-          name: 'Draw Shot',
-          description: 'Deliver your bowl as close as possible to the jack',
-          difficulty: 2.0,
-          tags: ['Accuracy', 'Control'],
-          createdAt: DateTime.now(),
-          imageUrl: 'assets/images/drills/draw_shot.jpg',
-          durationMinutes: 15,
-        ),
-        Drill(
-          id: 2,
-          name: 'Drive Shot',
-          description: 'A fast and powerful shot to remove opponent\'s bowls',
-          difficulty: 3.0,
-          tags: ['Power', 'Speed'],
-          createdAt: DateTime.now(),
-          imageUrl: 'assets/images/drills/drive_shot.jpg',
-          durationMinutes: 20,
-        ),
-        Drill(
-          id: 3,
-          name: 'Trail Shot',
-          description:
-              'Move the jack to a new position while following with your bowl',
-          difficulty: 4.0,
-          tags: ['Precision', 'Advanced'],
-          createdAt: DateTime.now(),
-          imageUrl: 'assets/images/drills/trail_shot.jpg',
-          durationMinutes: 25,
-        ),
+        // Drill(
+        //   id: 1,
+        //   name: 'Draw Shot',
+        //   description: 'Deliver your bowl as close as possible to the jack',
+        //   difficulty: 2.0,
+        //   tags: ['Accuracy', 'Control'],
+        //   createdAt: DateTime.now(),
+        //   imageUrl: 'assets/images/drills/draw_shot.jpg',
+        //   durationMinutes: 15,
+        // ),
+        // Drill(
+        //   id: 2,
+        //   name: 'Drive Shot',
+        //   description: 'A fast and powerful shot to remove opponent\'s bowls',
+        //   difficulty: 3.0,
+        //   tags: ['Power', 'Speed'],
+        //   createdAt: DateTime.now(),
+        //   imageUrl: 'assets/images/drills/drive_shot.jpg',
+        //   durationMinutes: 20,
+        // ),
+        // Drill(
+        //   id: 3,
+        //   name: 'Trail Shot',
+        //   description:
+        //       'Move the jack to a new position while following with your bowl',
+        //   difficulty: 4.0,
+        //   tags: ['Precision', 'Advanced'],
+        //   createdAt: DateTime.now(),
+        //   imageUrl: 'assets/images/drills/trail_shot.jpg',
+        //   durationMinutes: 25,
+        // ),
       ];
       _isLoadingDrills = false;
     });

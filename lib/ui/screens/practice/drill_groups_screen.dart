@@ -183,17 +183,18 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                       SizedBox(
                         height: 200,
                         child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: drillGroups
-                              .where((g) => g.isPublic)
-                              .length,
-                          itemBuilder: (context, index) {
-                            final group = drillGroups
-                                .where((g) => g.isPublic)
-                                .toList()[index];
-                            return _FeaturedDrillGroupCard(group: group);
-                          },
-                        ),
+                                scrollDirection: Axis.horizontal,
+                                itemCount: drillGroups
+                                    .where((g) => g.isPublic)
+                                    .length,
+                                itemBuilder: (context, index) {
+                                  final featuredGroups = drillGroups
+                                      .where((g) => g.isPublic)
+                                      .toList();
+                                  final group = featuredGroups[index];
+                                  return _FeaturedDrillGroupCard(group: group);
+                                },
+                              ),
                       ),
                     ],
                   ),
@@ -240,16 +241,30 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),
-                  delegate: SliverChildBuilderDelegate((
-                    BuildContext context,
-                    int index,
-                  ) {
-                    final customGroups = drillGroups
-                        .where((g) => !g.isPublic)
-                        .toList();
-                    final group = customGroups[index];
-                    return _CustomDrillGroupCard(group: group);
-                  }, childCount: drillGroups.where((g) => !g.isPublic).length),
+                  delegate: drillGroups.isEmpty
+                      ? SliverChildBuilderDelegate(
+                          (context, index) => Center(
+                            child: Text(
+                              'No custom groups available',
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.textTheme.bodySmall?.color,
+                              ),
+                            ),
+                          ),
+                          childCount: 1,
+                        )
+                      : SliverChildBuilderDelegate(
+                          (BuildContext context, int index) {
+                            final customGroups = drillGroups
+                                .where((g) => !g.isPublic)
+                                .toList();
+                            final group = customGroups[index];
+                            return _CustomDrillGroupCard(group: group);
+                          },
+                          childCount: drillGroups
+                              .where((g) => !g.isPublic)
+                              .length,
+                        ),
                 ),
               ),
             ],
@@ -311,12 +326,22 @@ class _FeaturedDrillGroupCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                '${group.drills.length} drills',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 14,
-                ),
+              Row(
+                children: [
+                  Icon(
+                    Icons.sports_cricket,
+                    size: 16,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${group.drills.length} drill${group.drills.length == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Row(
@@ -414,14 +439,22 @@ class _CustomDrillGroupCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${group.drills.length} drills',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.color?.withOpacity(0.7),
-                    ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.sports_cricket,
+                        size: 14,
+                        color: Theme.of(context).primaryColor.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${group.drills.length} drill${group.drills.length == 1 ? '' : 's'}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   if (group.tags.isNotEmpty)

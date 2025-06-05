@@ -36,19 +36,20 @@ class DrillGroup {
     bool isPublic = true,
     List<String>? tags,
     int difficulty = 1,
+    int? userId,
   }) {
     return DrillGroup(
-      id: 0,
+      id: 0, // New groups have no ID until created
       name: name,
       description: description ?? '',
-      userId: 0,
+      userId: userId ?? 0, // Use provided userId or default to 0
       isPublic: isPublic,
       difficulty: difficulty,
       tags: tags ?? [],
       drillIds: drillIds ?? [],
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
-      drills: const [],
+      drills: const [], // New groups start with no drills
     );
   }
 
@@ -57,19 +58,28 @@ class DrillGroup {
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
-      userId: json['user_id'] as int? ?? 0, // Fixed: using snake_case keys from API
-      isPublic: json['is_public'] as bool? ?? false, // Fixed: using snake_case keys from API
+      userId: json['user_id'] as int? ?? 0,
+      isPublic: json['is_public'] as bool? ?? true,
       difficulty: json['difficulty'] as int? ?? 1,
-      tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      createdAt: json['created_at'] != null // Fixed: using snake_case keys from API
+      tags:
+          (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+          [],
+      createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
-      updatedAt: json['updated_at'] != null // Fixed: using snake_case keys from API
+      updatedAt: json['updated_at'] != null && json['updated_at'] != "null"
           ? DateTime.parse(json['updated_at'])
           : DateTime.now(),
-      drills: (json['drills'] as List<dynamic>?)?.map((drill) =>
-              Drill.fromJson(drill as Map<String, dynamic>)).toList() ?? [],
-      drillIds: (json['drill_ids'] as List<dynamic>?)?.map((id) => id as int).toList() ?? [],
+      drills:
+          (json['drills'] as List<dynamic>?)
+              ?.map((drill) => Drill.fromJson(drill as Map<String, dynamic>))
+              .toList() ??
+          [],
+      drillIds:
+          (json['drill_ids'] as List<dynamic>?)
+              ?.map((id) => id as int)
+              .toList() ??
+          [],
     );
   }
 
