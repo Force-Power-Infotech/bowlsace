@@ -18,7 +18,6 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
   @override
   void initState() {
     super.initState();
-    // Schedule the initial load after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDrillGroups();
     });
@@ -39,6 +38,7 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
     final theme = Theme.of(context);
     final isLoading = provider.isLoading;
     final error = provider.error;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: RefreshIndicator(
@@ -49,18 +49,40 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
           slivers: [
             // Modern app bar with animated effects
             SliverAppBar(
-              expandedHeight: 200.0,
+              expandedHeight: 280.0,
               floating: false,
               pinned: true,
               stretch: true,
               backgroundColor: theme.primaryColor,
               flexibleSpace: FlexibleSpaceBar(
-                title: const Text(
-                  'Practice Drills',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+                titlePadding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 16.0,
+                ),
+                title: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Practice Drills',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Master your bowling techniques',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
                 background: Stack(
                   fit: StackFit.expand,
@@ -69,6 +91,7 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                       'assets/images/practicebg.png',
                       fit: BoxFit.cover,
                     ),
+                    // Gradient overlay
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -76,10 +99,15 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                           end: Alignment.bottomCenter,
                           colors: [
                             Colors.transparent,
-                            theme.primaryColor.withOpacity(0.7),
+                            theme.primaryColor.withOpacity(0.3),
+                            theme.primaryColor.withOpacity(0.8),
                           ],
                         ),
                       ),
+                    ),
+                    // Pattern overlay
+                    Positioned.fill(
+                      child: CustomPaint(painter: GridPainter(opacity: 0.1)),
                     ),
                   ],
                 ),
@@ -94,11 +122,14 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
             if (error != null)
               SliverToBoxAdapter(
                 child: Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.red.withOpacity(0.3)),
                   ),
                   child: Row(
@@ -132,20 +163,29 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.sports_cricket,
-                        size: 64,
-                        color: theme.primaryColor.withOpacity(0.5),
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.sports_cricket,
+                          size: 64,
+                          color: theme.primaryColor,
+                        ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                       Text(
-                        'No drill groups yet',
-                        style: theme.textTheme.titleLarge,
+                        'No Drill Groups Yet',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Text(
                         'Pull down to refresh or create a new group',
-                        style: theme.textTheme.bodyMedium?.copyWith(
+                        style: theme.textTheme.bodyLarge?.copyWith(
                           color: theme.textTheme.bodySmall?.color,
                         ),
                       ),
@@ -157,7 +197,7 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
               // Featured Groups
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -168,6 +208,7 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                             'Featured Groups',
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
                             ),
                           ),
                           TextButton.icon(
@@ -176,95 +217,77 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                             },
                             icon: const Icon(Icons.arrow_forward),
                             label: const Text('View All'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: theme.primaryColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
-                        height: 200,
+                        height: 220,
                         child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: drillGroups
-                                    .where((g) => g.isPublic)
-                                    .length,
-                                itemBuilder: (context, index) {
-                                  final featuredGroups = drillGroups
-                                      .where((g) => g.isPublic)
-                                      .toList();
-                                  final group = featuredGroups[index];
-                                  return _FeaturedDrillGroupCard(group: group);
-                                },
+                          scrollDirection: Axis.horizontal,
+                          itemCount: drillGroups
+                              .where((g) => g.isPublic)
+                              .length,
+                          itemBuilder: (context, index) {
+                            final featuredGroups = drillGroups
+                                .where((g) => g.isPublic)
+                                .toList();
+                            final group = featuredGroups[index];
+                            return Padding(
+                              padding: EdgeInsetsDirectional.only(
+                                start: index == 0 ? 0 : 16,
+                                end: index == featuredGroups.length - 1 ? 0 : 0,
                               ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // My Custom Groups
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'My Custom Groups',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
+                              child: _FeaturedDrillGroupCard(group: group),
+                            );
+                          },
                         ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const CreateDrillGroupScreen(),
-                            ),
-                          );
-                        },
-                      ),
                     ],
                   ),
                 ),
               ),
 
-              // Custom Groups Grid
+              // Your Groups Section
               SliverPadding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Text(
+                    'Your Groups',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Grid of user's drill groups
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.85,
-                    crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 0.85,
                   ),
-                  delegate: drillGroups.isEmpty
-                      ? SliverChildBuilderDelegate(
-                          (context, index) => Center(
-                            child: Text(
-                              'No custom groups available',
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: theme.textTheme.bodySmall?.color,
-                              ),
-                            ),
-                          ),
-                          childCount: 1,
-                        )
-                      : SliverChildBuilderDelegate(
-                          (BuildContext context, int index) {
-                            final customGroups = drillGroups
-                                .where((g) => !g.isPublic)
-                                .toList();
-                            final group = customGroups[index];
-                            return _CustomDrillGroupCard(group: group);
-                          },
-                          childCount: drillGroups
-                              .where((g) => !g.isPublic)
-                              .length,
-                        ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final group = drillGroups[index];
+                    if (!group.isPublic) {
+                      return _DrillGroupCard(group: group);
+                    }
+                    return null;
+                  }, childCount: drillGroups.length),
                 ),
               ),
             ],
@@ -272,9 +295,17 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: isLoading ? null : _loadDrillGroups,
-        icon: const Icon(Icons.refresh),
-        label: const Text('Refresh'),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const CreateDrillGroupScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Create Group'),
+        elevation: 4,
       ),
     );
   }
@@ -287,6 +318,9 @@ class _FeaturedDrillGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -298,91 +332,124 @@ class _FeaturedDrillGroupCard extends StatelessWidget {
       },
       child: Container(
         width: 280,
-        margin: const EdgeInsets.only(right: 16),
+        margin: const EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Theme.of(context).primaryColor.withOpacity(0.1),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+          color: isDark ? Colors.grey[850] : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                group.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header image with gradient overlay
+            Container(
+              height: 120,
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [
+                    theme.primaryColor,
+                    theme.primaryColor.withOpacity(0.7),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Row(
+              child: Stack(
                 children: [
-                  Icon(
-                    Icons.sports_cricket,
-                    size: 16,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${group.drills.length} drill${group.drills.length == 1 ? '' : 's'}',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 14,
+                  const Positioned.fill(
+                    child: Icon(
+                      Icons.sports_cricket,
+                      size: 48,
+                      color: Colors.white24,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  ...List.generate(
-                    5,
-                    (index) => Icon(
-                      index < group.difficulty
-                          ? Icons.star_rounded
-                          : Icons.star_border_rounded,
-                      color: Colors.amber,
-                      size: 16,
-                    ),
-                  ),
-                  if (group.tags.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      group.tags.first,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
+                  Positioned(
+                    right: 16,
+                    top: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.star_rounded,
+                            size: 16,
+                            color: Colors.amber[400],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Level ${group.difficulty}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    group.name,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    group.description,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _CustomDrillGroupCard extends StatelessWidget {
+class _DrillGroupCard extends StatelessWidget {
   final DrillGroup group;
 
-  const _CustomDrillGroupCard({required this.group});
+  const _DrillGroupCard({required this.group});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -394,99 +461,108 @@ class _CustomDrillGroupCard extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Theme.of(context).primaryColor.withOpacity(0.1),
+          color: isDark ? Colors.grey[850] : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with difficulty
+            // Gradient header
             Container(
-              height: 120,
+              height: 100,
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.05),
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
+                  top: Radius.circular(24),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [
+                    theme.primaryColor.withOpacity(0.8),
+                    theme.primaryColor,
+                  ],
                 ),
               ),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  5,
-                  (index) => Icon(
-                    index < group.difficulty
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
-                    color: Colors.amber,
-                    size: 24,
+              child: Stack(
+                children: [
+                  const Center(
+                    child: Icon(
+                      Icons.sports_cricket,
+                      size: 36,
+                      color: Colors.white24,
+                    ),
                   ),
-                ),
+                  Positioned(
+                    right: 12,
+                    top: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${group.drills.length} Drills',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     group.name,
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
+                  Text(
+                    group.description,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Icon(
-                        Icons.sports_cricket,
-                        size: 14,
-                        color: Theme.of(context).primaryColor.withOpacity(0.7),
+                        Icons.star_rounded,
+                        size: 16,
+                        color: theme.primaryColor,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${group.drills.length} drill${group.drills.length == 1 ? '' : 's'}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.7),
+                        'Level ${group.difficulty}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  if (group.tags.isNotEmpty)
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: group.tags
-                          .take(2)
-                          .map(
-                            (tag) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).primaryColor.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                tag,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Theme.of(context).primaryColor,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
                 ],
               ),
             ),
@@ -495,4 +571,27 @@ class _CustomDrillGroupCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class GridPainter extends CustomPainter {
+  final double opacity;
+
+  GridPainter({this.opacity = 0.1});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(opacity)
+      ..strokeWidth = 0.5;
+
+    for (var i = 0.0; i < size.width; i += 20) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+    for (var i = 0.0; i < size.height; i += 20) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
