@@ -27,14 +27,37 @@ class ChallengeApi {
     }
 
     final response = await _apiClient.get(endpoint);
-    return (response as List).map((item) => Challenge.fromJson(item)).toList();
+
+    List<dynamic> challengeList;
+
+    // Check if response has a data field
+    if (response.containsKey('data') && response['data'] is List) {
+      challengeList = response['data'] as List<dynamic>;
+    }
+    // Check if response is directly a list in items field
+    else if (response.containsKey('items') && response['items'] is List) {
+      challengeList = response['items'] as List<dynamic>;
+    }
+    // If neither, try to convert response entries
+    else {
+      return [];
+    }
+
+    return challengeList
+        .map((item) => Challenge.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Challenge> getChallenge(int challengeId) async {
     final response = await _apiClient.get(
       '${ApiConfig.challenges}/$challengeId',
     );
-    return Challenge.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return Challenge.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return Challenge.fromJson(response);
+    }
   }
 
   Future<List<Challenge>> getPendingChallenges() async {
@@ -46,7 +69,12 @@ class ChallengeApi {
       '${ApiConfig.challenges}/send',
       challenge.toJson(),
     );
-    return Challenge.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return Challenge.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return Challenge.fromJson(response);
+    }
   }
 
   Future<Challenge> acceptChallenge(int challengeId) async {
@@ -55,7 +83,12 @@ class ChallengeApi {
       challengeId.toString(),
     );
     final response = await _apiClient.put(endpoint, {});
-    return Challenge.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return Challenge.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return Challenge.fromJson(response);
+    }
   }
 
   Future<Challenge> declineChallenge(int challengeId) async {
@@ -63,7 +96,12 @@ class ChallengeApi {
       '${ApiConfig.challenges}/$challengeId/decline',
       {},
     );
-    return Challenge.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return Challenge.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return Challenge.fromJson(response);
+    }
   }
 
   Future<Challenge> completeChallenge(
@@ -74,6 +112,11 @@ class ChallengeApi {
       '${ApiConfig.challenges}/$challengeId',
       results,
     );
-    return Challenge.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return Challenge.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return Challenge.fromJson(response);
+    }
   }
 }

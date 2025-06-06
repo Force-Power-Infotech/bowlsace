@@ -1,11 +1,11 @@
 import '../api_client.dart';
 import '../api_config.dart';
-import '../../models/user.dart';
 
 class AuthApi {
   final ApiClient _apiClient;
+  final TokenManager _tokenManager;
 
-  AuthApi(this._apiClient);
+  AuthApi(this._apiClient) : _tokenManager = TokenManager();
 
   Future<Map<String, dynamic>> requestOtp(String phoneNumber) async {
     try {
@@ -64,9 +64,7 @@ class AuthApi {
   }
 
   Future<void> updateToken(String token) async {
-    if (_apiClient is TokenManager) {
-      await (_apiClient as TokenManager).setToken(token);
-    }
+    await _tokenManager.setToken(token);
   }
 
   Future<Map<String, dynamic>> updateProfile({

@@ -2,13 +2,17 @@ import 'package:flutter/foundation.dart';
 import '../models/practice_session.dart';
 import '../models/drill_group.dart';
 import '../models/drill.dart';
+import '../models/practice_model.dart';
 import '../api/services/drill_group_service.dart';
+import '../api/services/practice_session_service.dart';
 
 class PracticeProvider extends ChangeNotifier {
   final _drillGroupService = DrillGroupService();
+  final _practiceSessionService = PracticeSessionService();
 
   List<Session> _sessions = [];
   List<DrillGroup> _drillGroups = [];
+  List<PracticeSession> _practiceSessions = [];
   Session? _currentSession;
   DrillGroup? _selectedDrillGroup;
   Drill? _selectedDrill;
@@ -18,6 +22,7 @@ class PracticeProvider extends ChangeNotifier {
   // Getters
   List<Session> get sessions => _sessions;
   List<DrillGroup> get drillGroups => _drillGroups;
+  List<PracticeSession> get practiceSessions => _practiceSessions;
   Session? get currentSession => _currentSession;
   DrillGroup? get selectedDrillGroup => _selectedDrillGroup;
   Drill? get selectedDrill => _selectedDrill;
@@ -46,12 +51,13 @@ class PracticeProvider extends ChangeNotifier {
     }
   }
 
+  void selectDrillGroup(DrillGroup group) {
+    _selectedDrillGroup = group;
+    notifyListeners();
+  }
+
   void removeDrillGroup(int groupId) {
     _drillGroups.removeWhere((g) => g.id == groupId);
-    if (_selectedDrillGroup?.id == groupId) {
-      _selectedDrillGroup = null;
-      _selectedDrill = null;
-    }
     notifyListeners();
   }
 
@@ -112,6 +118,12 @@ class PracticeProvider extends ChangeNotifier {
   void clearSessions() {
     _sessions = [];
     _currentSession = null;
+    notifyListeners();
+  }
+
+  // Practice Sessions Methods
+  void setPracticeSessions(List<PracticeSession> sessions) {
+    _practiceSessions = sessions;
     notifyListeners();
   }
 
@@ -198,4 +210,64 @@ class PracticeProvider extends ChangeNotifier {
       setLoading(false);
     }
   }
+
+  Future<List<PracticeSession>> createPracticeSessions({
+    required int drillGroupId,
+    required List<int> drillIds,
+    required int userId,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final sessions = await _practiceSessionService.createPracticeSessions(
+        drillGroupId: drillGroupId,
+        drillIds: drillIds,
+        userId: userId,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return sessions;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<List<PracticeSession>> getUserPracticeSessions({
+    required int userId,
+    int skip = 0,
+    int limit = 100,
+  }) async {
+    if (_isLoading) return []; // Prevent multiple simultaneous calls
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      print('🔄 Getting practice sessions for user: $userId...');
+      final sessions = await _practiceSessionService.getUserPracticeSessions(
+        userId: userId,
+        skip: skip,
+        limit: limit,
+      );
+      print('✅ Got ${sessions.length} practice sessions');
+
+      // Store the practice sessions
+      setPracticeSessions(sessions);
+
+      setLoading(false);
+      return sessions;
+    } catch (e) {
+      print('❌ Error in getUserPracticeSessions: $e');
+      setError(e.toString());
+      setLoading(false);
+      return [];
+    }
+  }
+
+  // API Methods for Practice Sessions
 }

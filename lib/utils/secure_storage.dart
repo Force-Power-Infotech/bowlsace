@@ -22,4 +22,9 @@ class SecureStorage {
   Future<void> deleteAll() async {
     await _storage.deleteAll();
   }
+
+  static Future<String?> getToken() async {
+    const storage = FlutterSecureStorage();
+    return await storage.read(key: 'access_token');
+  }
 }

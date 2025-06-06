@@ -1,12 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../models/drill_group.dart';
+import '../../../models/drill.dart';
+import '../../../providers/practice_provider.dart';
+import '../../../providers/user_provider.dart';
 import 'practice_session_screen.dart';
 
 class DrillListScreen extends StatelessWidget {
   final DrillGroup drillGroup;
 
   const DrillListScreen({super.key, required this.drillGroup});
+
+  Future<void> _startDrill(BuildContext context, Drill drill) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final practiceProvider = Provider.of<PracticeProvider>(context, listen: false);
+
+    if (userProvider.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to start a practice session'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await practiceProvider.createPracticeSessions(
+        drillGroupId: drillGroup.id,
+        drillIds: [drill.id],
+        userId: userProvider.user!.id,
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Practice session created successfully'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to create practice session: ${e.toString()}'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,178 +170,181 @@ class DrillListScreen extends StatelessWidget {
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
                 final drill = drillGroup.drills[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey[900] : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header with icon and type badge
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.primaryColor.withOpacity(0.05),
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(20),
-                          ),
+                return GestureDetector(
+                  onTap: () => _startDrill(context, drill),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[900] : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                        child: Row(
-                          children: [
-                            // Animated icon container
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: theme.primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: theme.primaryColor.withOpacity(0.2),
-                                  width: 2,
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header with icon and type badge
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor.withOpacity(0.05),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(20),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              // Animated icon container
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: theme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: theme.primaryColor.withOpacity(0.2),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.sports_cricket,
+                                  color: theme.primaryColor,
+                                  size: 24,
                                 ),
                               ),
-                              child: Icon(
-                                Icons.sports_cricket,
-                                color: theme.primaryColor,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    drill.name,
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    drill.drillType?.toUpperCase() ??
-                                        'STANDARD',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.primaryColor,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.5,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      drill.name,
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                          ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Level indicator
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: theme.primaryColor.withOpacity(0.2),
-                                  width: 1,
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      drill.drillType?.toUpperCase() ??
+                                          'STANDARD',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.primaryColor,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.star_rounded,
-                                    size: 18,
-                                    color: theme.primaryColor,
+                              // Level indicator
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: theme.primaryColor.withOpacity(0.2),
+                                    width: 1,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Lvl ${drill.difficulty}',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.star_rounded,
+                                      size: 18,
                                       color: theme.primaryColor,
-                                      fontWeight: FontWeight.w600,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Lvl ${drill.difficulty}',
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: theme.primaryColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Description section
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                        child: Text(
-                          drill.description,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isDark ? Colors.grey[300] : Colors.grey[600],
-                            height: 1.4,
+                            ],
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      // Metrics row
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                        child: Row(
-                          children: [
-                            _buildDrillMetric(
-                              context,
-                              Icons.timer_outlined,
-                              '${drill.durationMinutes} mins',
-                              theme,
-                              isDark,
+                        // Description section
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                          child: Text(
+                            drill.description,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: isDark ? Colors.grey[300] : Colors.grey[600],
+                              height: 1.4,
                             ),
-                            const SizedBox(width: 24),
-                            _buildDrillMetric(
-                              context,
-                              Icons.track_changes,
-                              'Target ${drill.targetScore}',
-                              theme,
-                              isDark,
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // Metrics row
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          child: Row(
+                            children: [
+                              _buildDrillMetric(
+                                context,
+                                Icons.timer_outlined,
+                                '${drill.durationMinutes} mins',
+                                theme,
+                                isDark,
                               ),
-                              decoration: BoxDecoration(
-                                color: theme.primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
+                              const SizedBox(width: 24),
+                              _buildDrillMetric(
+                                context,
+                                Icons.track_changes,
+                                'Target ${drill.targetScore}',
+                                theme,
+                                isDark,
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.trending_up_rounded,
-                                    size: 16,
-                                    color: theme.primaryColor,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Details',
-                                    style: theme.textTheme.bodySmall?.copyWith(
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.trending_up_rounded,
+                                      size: 16,
                                       color: theme.primaryColor,
-                                      fontWeight: FontWeight.w600,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Details',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: theme.primaryColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               }, childCount: drillGroup.drills.length),

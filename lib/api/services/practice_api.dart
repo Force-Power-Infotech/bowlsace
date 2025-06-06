@@ -1,6 +1,5 @@
 import '../api_client.dart';
 import '../../models/practice_session.dart';
-import '../../models/drill_group.dart';
 import '../../models/shot.dart';
 
 class PracticeApi {
@@ -13,9 +12,20 @@ class PracticeApi {
   // Practice Sessions
   Future<List<Session>> getSessions() async {
     final response = await _client.get('/practice/sessions');
-    return (response.data as List)
-        .map((json) => Session.fromJson(json))
-        .toList();
+
+    if (response.containsKey('data') && response['data'] is List) {
+      final List<dynamic> sessions = response['data'] as List<dynamic>;
+      return sessions
+          .map((json) => Session.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } else if (response.containsKey('items') && response['items'] is List) {
+      final List<dynamic> sessions = response['items'] as List<dynamic>;
+      return sessions
+          .map((json) => Session.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } else {
+      return []; // Return empty list as fallback
+    }
   }
 
   Future<List<Session>> getRecentSessions({int limit = 5}) async {
@@ -23,14 +33,30 @@ class PracticeApi {
       '/practice/sessions',
       queryParameters: {'limit': limit.toString(), 'sort': '-created_at'},
     );
-    return (response.data as List)
-        .map((json) => Session.fromJson(json))
-        .toList();
+
+    if (response.containsKey('data') && response['data'] is List) {
+      final List<dynamic> sessions = response['data'] as List<dynamic>;
+      return sessions
+          .map((json) => Session.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } else if (response.containsKey('items') && response['items'] is List) {
+      final List<dynamic> sessions = response['items'] as List<dynamic>;
+      return sessions
+          .map((json) => Session.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } else {
+      return []; // Return empty list as fallback
+    }
   }
 
   Future<Session> createSession(SessionCreate data) async {
     final response = await _client.post('/practice/sessions', data.toJson());
-    return Session.fromJson(response.data);
+
+    if (response.containsKey('data')) {
+      return Session.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return Session.fromJson(response);
+    }
   }
 
   Future<void> updateSession(int sessionId, SessionUpdate update) async {

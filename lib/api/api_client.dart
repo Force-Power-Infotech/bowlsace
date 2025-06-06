@@ -47,61 +47,50 @@ class TokenManager {
   bool isTokenExpired() {
     if (_cachedToken == null) return true;
     try {
-      final decodedToken = jwt_decode(_cachedToken!);
-      final expirationDate = DateTime.fromMillisecondsSinceEpoch(
-        decodedToken['exp'] * 1000,
-      );
-      return DateTime.now().isAfter(expirationDate);
+      final decodedToken = _decodeJwt(_cachedToken!);
+      if (decodedToken.containsKey('exp')) {
+        final expirationDate = DateTime.fromMillisecondsSinceEpoch(
+          (decodedToken['exp'] as int) * 1000,
+        );
+        return DateTime.now().isAfter(expirationDate);
+      }
+      return false;
     } catch (e) {
       return true;
     }
   }
 
-  // Placeholder for jwt_decode function
-  // In a real implementation, you would use the jwt_decoder package
-  Map<String, dynamic> jwt_decode(String token) {
-    // This is a simplified placeholder. In a real implementation,
-    // you would use the jwt_decoder package's JwtDecoder.decode method
-    final parts = token.split('.');
-    if (parts.length != 3) {
-      throw Exception('Invalid token');
+  // Decode JWT token without external packages
+  Map<String, dynamic> _decodeJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) {
+        throw Exception('Invalid token format');
+      }
+
+      String payload = parts[1];
+      // Add padding if needed
+      while (payload.length % 4 != 0) {
+        payload += '=';
+      }
+
+      payload = payload.replaceAll('-', '+').replaceAll('_', '/');
+
+      final normalized = base64.normalize(payload);
+      final resp = utf8.decode(base64.decode(normalized));
+      return json.decode(resp) as Map<String, dynamic>;
+    } catch (e) {
+      throw Exception('Failed to decode JWT token: $e');
     }
-
-    final payload = parts[1];
-    final normalized = base64Url.normalize(payload);
-    final resp = utf8.decode(base64Url.decode(normalized));
-    final map = json.decode(resp);
-
-    return map;
   }
 }
 
 class ApiClient {
-  final http.Client _httpClient = http.Client();
-  final SecureStorage _secureStorage = SecureStorage();
   final String baseUrl = ApiConfig.baseUrl;
-  static const int maxRetries = 3;
-
-  void _logApiCall(
-    String method,
-    String endpoint,
-    dynamic data,
-    dynamic response, [
-    Object? error,
-    int? attempt,
-  ]) {
-    final attemptStr = attempt != null ? ' (Attempt $attempt/$maxRetries)' : '';
-    developer.log(
-      '🌐 API $method: $endpoint$attemptStr\n'
-      '📤 Request: ${data != null ? jsonEncode(data) : "null"}\n'
-      '📥 Response: ${response != null ? jsonEncode(response) : "null"}'
-      '${error != null ? "\n❌ Error: ${error.toString()}" : ""}',
-      name: 'API',
-    );
-  }
+  final TokenManager _tokenManager = TokenManager();
 
   Future<Map<String, String>> _getHeaders() async {
-    final token = await _secureStorage.read(key: 'auth_token');
+    final token = await _tokenManager.getToken();
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -109,158 +98,176 @@ class ApiClient {
     };
   }
 
-  Future<dynamic> _handleResponse(
-    http.Response response,
-    String method,
-    String endpoint,
-    dynamic data,
-  ) async {
+  Future<Map<String, dynamic>> post(
+    String path,
+    Map<String, dynamic>? body, {
+    Map<String, String>? queryParameters,
+  }) async {
     try {
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        if (response.body.isEmpty) return {};
-        final responseData = json.decode(response.body);
-        _logApiCall(method, endpoint, data, responseData);
-        return responseData;
-      } else if (response.statusCode == 401) {
-        // Handle unauthorized - clear token and redirect to login
-        await _secureStorage.delete(key: 'auth_token');
-        throw UnauthorizedException('Session expired. Please log in again.');
-      } else {
-        // Handle other errors
-        Map<String, dynamic> error;
-        try {
-          error = json.decode(response.body);
-        } catch (e) {
-          error = {'detail': 'Could not parse error response'};
-        }
-
-        final message =
-            error['detail'] ??
-            error['message'] ??
-            error['error'] ??
-            'Server error: ${response.statusCode}';
-
-        _logApiCall(
-          method,
-          endpoint,
-          data,
-          error,
-          ApiException(statusCode: response.statusCode, message: message),
-        );
-
-        throw ApiException(statusCode: response.statusCode, message: message);
+      final headers = await _getHeaders();
+      var url = Uri.parse('$baseUrl$path');
+      if (queryParameters != null) {
+        url = url.replace(queryParameters: queryParameters);
       }
-    } catch (e) {
-      if (e is UnauthorizedException || e is ApiException) {
-        rethrow;
+
+      developer.log('API POST Request: $url');
+      if (body != null) {
+        developer.log('Body: ${jsonEncode(body)}');
       }
-      throw ApiException(
-        statusCode: 500,
-        message: 'Error processing response: ${e.toString()}',
+
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: body != null ? jsonEncode(body) : null,
       );
-    }
-  }
 
-  Future<T> _withRetry<T>(
-    Future<T> Function() operation,
-    String method,
-    String endpoint,
-    dynamic data,
-  ) async {
-    int attempt = 1;
-    while (true) {
-      try {
-        return await operation();
-      } catch (e) {
-        final isNetworkError =
-            e is http.ClientException ||
-            (e is ApiException && e.statusCode >= 500);
+      developer.log('API Response Status: ${response.statusCode}');
+      developer.log('API Response Body: ${response.body}');
 
-        if (isNetworkError && attempt < maxRetries) {
-          _logApiCall(method, endpoint, data, null, e, attempt);
-          // Exponential backoff: 1s, 2s, 4s...
-          await Future.delayed(Duration(seconds: attempt));
-          attempt++;
-          continue;
-        }
+      if (response.statusCode == 401) {
+        throw UnauthorizedException('Unauthorized request');
+      }
+
+      if (response.statusCode >= 400) {
+        throw ApiException(
+          statusCode: response.statusCode,
+          message: 'API request failed: ${response.body}',
+        );
+      }
+
+      return json.decode(response.body);
+    } catch (e) {
+      if (e is ApiException || e is UnauthorizedException) {
         rethrow;
       }
+      throw NetworkException('Network error: $e');
     }
   }
 
-  Future<dynamic> get(
-    String endpoint, {
+  Future<Map<String, dynamic>> get(
+    String path, {
     Map<String, String>? queryParameters,
   }) async {
-    return _withRetry(
-      () async {
-        final headers = await _getHeaders();
-        final uri = Uri.parse(
-          '$baseUrl$endpoint',
-        ).replace(queryParameters: queryParameters);
-        final response = await _httpClient.get(uri, headers: headers);
-        return _handleResponse(response, 'GET', endpoint, queryParameters);
-      },
-      'GET',
-      endpoint,
-      queryParameters,
-    );
+    try {
+      final headers = await _getHeaders();
+      var url = Uri.parse('$baseUrl$path');
+      if (queryParameters != null) {
+        url = url.replace(queryParameters: queryParameters);
+      }
+
+      developer.log('API GET Request: $url');
+
+      final response = await http.get(url, headers: headers);
+
+      developer.log('API Response Status: ${response.statusCode}');
+      developer.log('API Response Body: ${response.body}');
+
+      if (response.statusCode == 401) {
+        throw UnauthorizedException('Unauthorized request');
+      }
+
+      if (response.statusCode >= 400) {
+        throw ApiException(
+          statusCode: response.statusCode,
+          message: 'API request failed: ${response.body}',
+        );
+      }
+
+      return json.decode(response.body);
+    } catch (e) {
+      if (e is ApiException || e is UnauthorizedException) {
+        rethrow;
+      }
+      throw NetworkException('Network error: $e');
+    }
   }
 
-  Future<dynamic> post(
-    String endpoint,
-    dynamic data, {
+  Future<Map<String, dynamic>> put(
+    String path,
+    Map<String, dynamic>? body, {
     Map<String, String>? queryParameters,
   }) async {
-    return _withRetry(
-      () async {
-        final headers = await _getHeaders();
-        final uri = Uri.parse(
-          '$baseUrl$endpoint',
-        ).replace(queryParameters: queryParameters);
-        final response = await _httpClient.post(
-          uri,
-          headers: headers,
-          body: data != null ? json.encode(data) : null,
+    try {
+      final headers = await _getHeaders();
+      var url = Uri.parse('$baseUrl$path');
+      if (queryParameters != null) {
+        url = url.replace(queryParameters: queryParameters);
+      }
+
+      developer.log('API PUT Request: $url');
+      if (body != null) {
+        developer.log('Body: ${jsonEncode(body)}');
+      }
+
+      final response = await http.put(
+        url,
+        headers: headers,
+        body: body != null ? jsonEncode(body) : null,
+      );
+
+      developer.log('API Response Status: ${response.statusCode}');
+      developer.log('API Response Body: ${response.body}');
+
+      if (response.statusCode == 401) {
+        throw UnauthorizedException('Unauthorized request');
+      }
+
+      if (response.statusCode >= 400) {
+        throw ApiException(
+          statusCode: response.statusCode,
+          message: 'API request failed: ${response.body}',
         );
-        return _handleResponse(response, 'POST', endpoint, data);
-      },
-      'POST',
-      endpoint,
-      data,
-    );
+      }
+
+      return json.decode(response.body);
+    } catch (e) {
+      if (e is ApiException || e is UnauthorizedException) {
+        rethrow;
+      }
+      throw NetworkException('Network error: $e');
+    }
   }
 
-  Future<dynamic> put(String endpoint, dynamic data) async {
-    return _withRetry(
-      () async {
-        final headers = await _getHeaders();
-        final response = await _httpClient.put(
-          Uri.parse('$baseUrl$endpoint'),
-          headers: headers,
-          body: json.encode(data),
-        );
-        return _handleResponse(response, 'PUT', endpoint, data);
-      },
-      'PUT',
-      endpoint,
-      data,
-    );
-  }
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    Map<String, String>? queryParameters,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      var url = Uri.parse('$baseUrl$path');
+      if (queryParameters != null) {
+        url = url.replace(queryParameters: queryParameters);
+      }
 
-  Future<dynamic> delete(String endpoint) async {
-    return _withRetry(
-      () async {
-        final headers = await _getHeaders();
-        final response = await _httpClient.delete(
-          Uri.parse('$baseUrl$endpoint'),
-          headers: headers,
+      developer.log('API DELETE Request: $url');
+
+      final response = await http.delete(url, headers: headers);
+
+      developer.log('API Response Status: ${response.statusCode}');
+      developer.log('API Response Body: ${response.body}');
+
+      if (response.statusCode == 401) {
+        throw UnauthorizedException('Unauthorized request');
+      }
+
+      if (response.statusCode >= 400) {
+        throw ApiException(
+          statusCode: response.statusCode,
+          message: 'API request failed: ${response.body}',
         );
-        return _handleResponse(response, 'DELETE', endpoint, null);
-      },
-      'DELETE',
-      endpoint,
-      null,
-    );
+      }
+
+      // For DELETE requests, the response might be empty
+      if (response.body.isEmpty) {
+        return <String, dynamic>{'success': true};
+      }
+
+      return json.decode(response.body);
+    } catch (e) {
+      if (e is ApiException || e is UnauthorizedException) {
+        rethrow;
+      }
+      throw NetworkException('Network error: $e');
+    }
   }
 }

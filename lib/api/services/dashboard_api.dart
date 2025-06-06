@@ -9,11 +9,25 @@ class DashboardApi {
 
   Future<DashboardMetrics> getDashboardMetrics(int userId) async {
     final response = await _apiClient.get('${ApiConfig.dashboard}/$userId');
-    return DashboardMetrics.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return DashboardMetrics.fromJson(
+        response['data'] as Map<String, dynamic>,
+      );
+    } else {
+      return DashboardMetrics.fromJson(response);
+    }
   }
 
   Future<DashboardMetrics> getUserDashboard() async {
     final response = await _apiClient.get('${ApiConfig.dashboard}/me');
-    return DashboardMetrics.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return DashboardMetrics.fromJson(
+        response['data'] as Map<String, dynamic>,
+      );
+    } else {
+      return DashboardMetrics.fromJson(response);
+    }
   }
 }

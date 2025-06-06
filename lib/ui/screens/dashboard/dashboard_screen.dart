@@ -7,6 +7,7 @@ import '../../../providers/practice_provider.dart';
 import '../../../repositories/auth_repository.dart';
 import '../../../repositories/practice_repository.dart';
 import '../../../api/api_error_handler.dart';
+import '../../../models/practice_session.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -137,88 +138,201 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          // Modern app bar with user info
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (userProvider.user != null) ...[
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          // Modern app bar with user info and search
+          SliverAppBar(
+            floating: true,
+            pinned: true,
+            expandedHeight: 180.0,
+            backgroundColor: theme.scaffoldBackgroundColor,
+            elevation: 0,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                padding: const EdgeInsets.fromLTRB(20, 40, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Welcome back',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        if (userProvider.user != null) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Welcome back',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                userProvider.user!.firstName ??
+                                    userProvider.user!.username ??
+                                    'Bowler',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          userProvider.user!.firstName ??
-                              userProvider.user!.username ??
-                              'Bowler',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                          GestureDetector(
+                            onTap: _logout,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.logout_rounded,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
-                    GestureDetector(
-                      onTap: _logout,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.logout_rounded,
-                          color: theme.colorScheme.primary,
-                        ),
+                    const SizedBox(height: 16),
+                    // Modern search bar
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.search,
+                            color: theme.colorScheme.onSurface.withOpacity(0.4),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: 'Search drills and groups...',
+                                hintStyle: TextStyle(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.4),
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              onChanged: (value) {
+                                // TODO: Implement search functionality
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+          ),
+
+          // Stats overview
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.primary.withOpacity(0.8),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Your Stats',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onPrimary,
+                        ),
+                      ),
+                      Icon(
+                        Icons.auto_graph_rounded,
+                        color: theme.colorScheme.onPrimary.withOpacity(0.7),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _StatItem(
+                        icon: Icons.fitness_center,
+                        value: practiceProvider.sessions.length.toString(),
+                        label: 'Sessions',
+                        color: theme.colorScheme.onPrimary,
+                      ),
+                      _StatItem(
+                        icon: Icons.timer,
+                        value: '${_calculateTotalMinutes(practiceProvider.sessions)}',
+                        label: 'Minutes',
+                        color: theme.colorScheme.onPrimary,
+                      ),
+                      _StatItem(
+                        icon: Icons.emoji_events,
+                        value: '0',
+                        label: 'Completed',
+                        color: theme.colorScheme.onPrimary,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ),
 
-          // Quick action buttons
+          // Quick actions
           SliverPadding(
-            padding: const EdgeInsets.all(20),
-            sliver: SliverGrid(
-              delegate: SliverChildListDelegate([
-                _QuickActionCard(
-                  icon: Icons.fitness_center,
-                  label: 'Start Practice',
-                  description: 'Begin a new practice session',
-                  onTap: _startNewPractice,
-                  color: theme.colorScheme.primary,
-                ),
-                _QuickActionCard(
-                  icon: Icons.emoji_events,
-                  label: 'Challenges',
-                  description: 'View and accept challenges',
-                  onTap: _viewAllChallenges,
-                  color: theme.colorScheme.secondary,
-                ),
-                _QuickActionCard(
-                  icon: Icons.history,
-                  label: 'History',
-                  description: 'View practice history',
-                  onTap: _viewAllPractices,
-                  color: theme.colorScheme.tertiary,
-                ),
-              ]),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 1.3,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverToBoxAdapter(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _ActionButton(
+                      onTap: _startNewPractice,
+                      icon: Icons.play_circle_fill_rounded,
+                      label: 'New Practice',
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ActionButton(
+                      onTap: _viewAllChallenges,
+                      icon: Icons.emoji_events_rounded,
+                      label: 'Challenges',
+                      color: theme.colorScheme.secondary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -245,51 +359,156 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             sliver: practiceProvider.sessions.isEmpty
                 ? SliverToBoxAdapter(
-                    child: Card(
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        height: 100,
-                        child: const Center(
-                          child: Text('No recent practice sessions'),
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 20),
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: theme.colorScheme.outline.withOpacity(0.1),
                         ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.sports_cricket,
+                            size: 48,
+                            color: theme.colorScheme.primary.withOpacity(0.3),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No recent practice sessions',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: _startNewPractice,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Start your first session'),
+                          ),
+                        ],
                       ),
                     ),
                   )
                 : SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
                       final session = practiceProvider.sessions[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(16),
-                          title: Text(
-                            session.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: theme.colorScheme.outline.withOpacity(0.1),
                           ),
-                          subtitle: Text(
-                            '${session.durationMinutes} mins • ${session.location ?? 'No location'}',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.6,
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.colorScheme.shadow.withOpacity(0.03),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => Navigator.of(context).pushNamed(
+                              '/practice/details',
+                              arguments: session,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  // Session type icon
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.sports_cricket,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  // Session details
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          session.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.timer_outlined,
+                                              size: 14,
+                                              color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${session.durationMinutes} mins',
+                                              style: TextStyle(
+                                                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Icon(
+                                              Icons.location_on_outlined,
+                                              size: 14,
+                                              color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              session.location ?? 'No location',
+                                              style: TextStyle(
+                                                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Date and arrow
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        _formatDate(session.createdAt),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: 14,
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                _formatDate(session.createdAt),
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pushNamed('/practice/details', arguments: session),
                         ),
                       );
                     }, childCount: practiceProvider.sessions.length),
@@ -306,56 +525,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }
+
+  int _calculateTotalMinutes(List<Session> sessions) {
+    return sessions.fold<int>(0, (sum, session) => sum + session.durationMinutes);
+  }
 }
 
-class _QuickActionCard extends StatelessWidget {
+class _StatItem extends StatelessWidget {
   final IconData icon;
+  final String value;
   final String label;
-  final String description;
-  final VoidCallback onTap;
   final Color color;
 
-  const _QuickActionCard({
+  const _StatItem({
     required this.icon,
+    required this.value,
     required this.label,
-    required this.description,
-    required this.onTap,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Column(
+      children: [
+        Icon(icon, color: color.withOpacity(0.7), size: 24),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color: color.withOpacity(0.7),
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _ActionButton({
+    required this.onTap,
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 32, color: color),
-              const Spacer(),
+              Icon(icon, color: color),
+              const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
                   color: color,
+                  fontWeight: FontWeight.bold,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(fontSize: 12, color: color.withOpacity(0.8)),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

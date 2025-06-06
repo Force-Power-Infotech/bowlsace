@@ -32,18 +32,46 @@ class DrillApi {
     }
 
     final response = await _apiClient.get(endpoint);
-    return (response as List).map((item) => Drill.fromJson(item)).toList();
+
+    List<dynamic> drillsList;
+
+    // Check if response has a data field
+    if (response.containsKey('data') && response['data'] is List) {
+      drillsList = response['data'] as List<dynamic>;
+    }
+    // Check if response is directly a list in items field
+    else if (response.containsKey('items') && response['items'] is List) {
+      drillsList = response['items'] as List<dynamic>;
+    }
+    // If neither, return empty list
+    else {
+      return [];
+    }
+
+    return drillsList
+        .map((item) => Drill.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Drill> getDrill(int drillId) async {
     final response = await _apiClient.get('${ApiConfig.drills}/$drillId');
-    return Drill.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return Drill.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return Drill.fromJson(response);
+    }
   }
 
   // For admin functionality
   Future<Drill> createDrill(Map<String, dynamic> drillData) async {
     final response = await _apiClient.post(ApiConfig.drills, drillData);
-    return Drill.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return Drill.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return Drill.fromJson(response);
+    }
   }
 
   Future<Drill> updateDrill(int drillId, Map<String, dynamic> drillData) async {
@@ -51,7 +79,12 @@ class DrillApi {
       '${ApiConfig.drills}/$drillId',
       drillData,
     );
-    return Drill.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return Drill.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return Drill.fromJson(response);
+    }
   }
 
   Future<void> deleteDrill(int drillId) async {

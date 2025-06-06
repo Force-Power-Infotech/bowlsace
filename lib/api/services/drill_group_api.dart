@@ -26,22 +26,33 @@ class DrillGroupApi {
       queryParameters: queryParams,
     );
 
-    print('DrillGroups API Response: ${response.data}');
+    print('DrillGroups API Response: $response');
 
-    if (response.data is! List) {
-      print('DrillGroups API Error: Expected List but got ${response.data.runtimeType}');
+    List<dynamic> drillGroupsList;
+
+    // Check if response has a data field
+    if (response.containsKey('data') && response['data'] is List) {
+      drillGroupsList = response['data'] as List<dynamic>;
+    }
+    // Check if response is directly a list in items field
+    else if (response.containsKey('items') && response['items'] is List) {
+      drillGroupsList = response['items'] as List<dynamic>;
+    }
+    // If neither, throw an exception
+    else {
+      print(
+        'DrillGroups API Error: Expected List but got ${response.runtimeType}',
+      );
       throw FormatException(
-        'Expected List response but got ${response.data.runtimeType}',
+        'Expected List response but got ${response.runtimeType}',
       );
     }
 
     try {
-      final groups = (response.data as List)
-          .map((json) {
-            print('Processing drill group: $json');
-            return DrillGroup.fromJson(json);
-          })
-          .toList();
+      final groups = drillGroupsList.map((json) {
+        print('Processing drill group: $json');
+        return DrillGroup.fromJson(json as Map<String, dynamic>);
+      }).toList();
       print('Successfully parsed ${groups.length} drill groups');
       return groups;
     } catch (e, stackTrace) {
@@ -52,17 +63,26 @@ class DrillGroupApi {
 
   Future<DrillGroup> getDrillGroup(int groupId) async {
     final response = await _apiClient.get('${ApiConfig.drillGroups}/$groupId');
-    return DrillGroup.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return DrillGroup.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return DrillGroup.fromJson(response);
+    }
   }
 
   // For admin functionality
   Future<DrillGroup> createDrillGroup(Map<String, dynamic> groupData) async {
     print('Creating drill group with data: $groupData');
     final response = await _apiClient.post(ApiConfig.drillGroups, groupData);
-    print('Create drill group response: ${response.data}');
-    
+    print('Create drill group response: $response');
+
     try {
-      return DrillGroup.fromJson(response.data);
+      if (response.containsKey('data')) {
+        return DrillGroup.fromJson(response['data'] as Map<String, dynamic>);
+      } else {
+        return DrillGroup.fromJson(response);
+      }
     } catch (e, stackTrace) {
       print('Error parsing created drill group: $e\n$stackTrace');
       rethrow;
@@ -77,7 +97,12 @@ class DrillGroupApi {
       '${ApiConfig.drillGroups}/$groupId',
       groupData,
     );
-    return DrillGroup.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return DrillGroup.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return DrillGroup.fromJson(response);
+    }
   }
 
   Future<void> deleteDrillGroup(int groupId) async {
@@ -89,13 +114,23 @@ class DrillGroupApi {
       '${ApiConfig.drillGroups}/$groupId/drills',
       {'drill_id': drillId},
     );
-    return DrillGroup.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return DrillGroup.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return DrillGroup.fromJson(response);
+    }
   }
 
   Future<DrillGroup> removeDrillFromGroup(int groupId, int drillId) async {
     final response = await _apiClient.delete(
       '${ApiConfig.drillGroups}/$groupId/drills/$drillId',
     );
-    return DrillGroup.fromJson(response);
+
+    if (response.containsKey('data')) {
+      return DrillGroup.fromJson(response['data'] as Map<String, dynamic>);
+    } else {
+      return DrillGroup.fromJson(response);
+    }
   }
 }
