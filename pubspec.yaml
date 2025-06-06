@@ -34,8 +34,8 @@ dependencies:
   shared_preferences: ^2.1.0  # For token storage
   provider: ^6.0.5       # For state management
   jwt_decoder: ^2.0.1    # For JWT token handling
-  connectivity_plus: ^3.0.3  # For network connectivity detection
-  # connectivity_plus: ^6.1.4  # For network connectivity detection
+  # connectivity_plus: ^3.0.3  # For network connectivity detection
+  connectivity_plus: ^6.1.4  # For network connectivity detection
   retry: ^3.1.1          # For implementing retry logic
   flutter_secure_storage: ^8.0.0   # For secure token storage
   get_it: ^7.2.0         # For dependency injection

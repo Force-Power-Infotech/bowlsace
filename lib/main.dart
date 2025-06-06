@@ -20,6 +20,7 @@ import 'ui/screens/practice/create_practice_screen.dart';
 import 'ui/screens/practice/drill_groups_screen.dart';
 import 'ui/screens/practice/drill_list_screen.dart';
 import 'ui/screens/practice/create_drill_group_screen.dart';
+import 'ui/screens/practice/practice_history_screen.dart';
 import 'ui/screens/challenge/challenge_details_screen.dart';
 import 'ui/screens/challenge/create_challenge_screen.dart';
 import 'ui/screens/settings/settings_screen.dart';
@@ -60,6 +61,7 @@ class BowlsAceApp extends StatelessWidget {
           '/practice': (context) =>
               const MainNavigationScreen(selectedIndex: 1),
           '/practice/new': (context) => const CreatePracticeScreen(),
+          '/practice/history': (context) => const PracticeHistoryScreen(),
           '/challenges': (context) =>
               const MainNavigationScreen(selectedIndex: 2),
           '/profile': (context) => const MainNavigationScreen(selectedIndex: 3),

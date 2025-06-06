@@ -242,7 +242,8 @@ class PracticeProvider extends ChangeNotifier {
     int skip = 0,
     int limit = 100,
   }) async {
-    if (_isLoading) return []; // Prevent multiple simultaneous calls
+    if (_isLoading)
+      return _practiceSessions; // Return cached sessions if we're already loading
 
     setLoading(true);
     setError(null);
@@ -265,7 +266,9 @@ class PracticeProvider extends ChangeNotifier {
       print('❌ Error in getUserPracticeSessions: $e');
       setError(e.toString());
       setLoading(false);
-      return [];
+
+      // Don't clear existing sessions on error
+      return _practiceSessions;
     }
   }
 

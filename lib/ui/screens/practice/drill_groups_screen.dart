@@ -64,6 +64,15 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
               pinned: true,
               stretch: true,
               backgroundColor: theme.primaryColor,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.history),
+                  tooltip: 'Practice History',
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/practice/history');
+                  },
+                ),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 titlePadding: const EdgeInsets.symmetric(
                   horizontal: 24.0,
@@ -264,43 +273,6 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                 ),
               ),
 
-              // Your Groups Section
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: Text(
-                    'Your Groups',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-
-              // Grid of user's drill groups
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 0.85,
-                  ),
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final group = drillGroups[index];
-                    if (!group.isPublic) {
-                      return _DrillGroupCard(group: group);
-                    }
-                    return null;
-                  }, childCount: drillGroups.length),
-                ),
-              ),
-
               // Practice History Section
               SliverPadding(
                 padding: const EdgeInsets.symmetric(
@@ -309,7 +281,7 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                 ),
                 sliver: SliverToBoxAdapter(
                   child: Text(
-                    'Practice History',
+                    'PRACTICE HISTORY',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
@@ -569,13 +541,16 @@ class _FeaturedDrillGroupCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    group.description,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  Container(
+                    height: 36, // Reduced height to fix overflow (was 40)
+                    child: SingleChildScrollView(
+                      child: Text(
+                        group.description,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      ),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -685,13 +660,16 @@ class _DrillGroupCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    group.description,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  Container(
+                    height: 40, // Fixed height container for description
+                    child: SingleChildScrollView(
+                      child: Text(
+                        group.description,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      ),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
                   Row(

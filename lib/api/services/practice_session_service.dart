@@ -105,6 +105,9 @@ class PracticeSessionService {
       );
 
       print('API response type: ${response.runtimeType}');
+      print(
+        'API response sample: ${response is List ? (response.isNotEmpty ? response[0] : "empty list") : response}',
+      );
 
       // Handle direct list response format (new API format)
       if (response is List) {
@@ -117,11 +120,22 @@ class PracticeSessionService {
           if (item is Map<String, dynamic>) {
             try {
               sessions.add(PracticeSession.fromJson(item));
+              print(
+                'Successfully parsed practice session ${i + 1}/${response.length}',
+              );
             } catch (e) {
-              print('Error parsing practice session item: $e');
+              print('Error parsing practice session item ${i + 1}: $e');
+              print('Problem item: $item');
             }
+          } else {
+            print('Item at index $i is not a Map: ${item.runtimeType}');
           }
         }
+
+        if (sessions.isEmpty && response.isNotEmpty) {
+          print('Warning: Could not parse any practice sessions from response');
+        }
+
         return sessions;
       }
 
@@ -164,7 +178,9 @@ class PracticeSessionService {
       return [];
     } catch (e) {
       print('Error getting practice sessions: $e');
-      throw Exception('Failed to get practice sessions: $e');
+      // Don't throw an exception, just return empty list and log the error
+      print('Returning empty list instead of throwing exception');
+      return [];
     }
   }
 }

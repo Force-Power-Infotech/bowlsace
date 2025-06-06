@@ -144,7 +144,7 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> get(
+  Future<dynamic> get(
     String path, {
     Map<String, String>? queryParameters,
   }) async {
