@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../../models/drill_group.dart';
 import '../../../providers/practice_provider.dart';
+import '../../../providers/user_provider.dart';
 import 'drill_list_screen.dart';
 import 'create_drill_group_screen.dart';
 
@@ -25,16 +27,24 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
 
   Future<void> _loadDrillGroups() async {
     if (!mounted) return;
-    await Provider.of<PracticeProvider>(
-      context,
-      listen: false,
-    ).getDrillGroups();
+    final provider = Provider.of<PracticeProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Load drill groups
+    await provider.getDrillGroups();
+
+    // Load practice sessions for the current user
+    if (userProvider.user != null) {
+      await provider.getUserPracticeSessions(userId: userProvider.user!.id);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<PracticeProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
     final drillGroups = provider.drillGroups;
+    final practiceSessions = provider.practiceSessions;
     final theme = Theme.of(context);
     final isLoading = provider.isLoading;
     final error = provider.error;
@@ -289,6 +299,143 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                     return null;
                   }, childCount: drillGroups.length),
                 ),
+              ),
+
+              // Practice History Section
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Text(
+                    'Practice History',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+
+              // List of practice sessions
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                sliver: practiceSessions.isEmpty
+                    ? SliverToBoxAdapter(
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[850] : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.history,
+                                size: 48,
+                                color: theme.primaryColor.withOpacity(0.3),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No practice history yet',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.7),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Complete a practice session to see your history',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.5),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final session = practiceSessions[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 2,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              leading: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: theme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.sports_cricket,
+                                  color: theme.primaryColor,
+                                ),
+                              ),
+                              title: Text(
+                                session.drill?.name ?? 'Practice Session',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    session.drillGroup?.name ?? 'Unknown Group',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? Colors.grey[400]
+                                          : Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    DateFormat(
+                                      'MMMM d, yyyy - h:mm a',
+                                    ).format(session.createdAt),
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                              trailing: Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: theme.primaryColor,
+                              ),
+                              onTap: () {
+                                // TODO: Navigate to practice session details
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Viewing details for ${session.drill?.name ?? 'Practice Session'}',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        }, childCount: practiceSessions.length),
+                      ),
               ),
             ],
           ],
