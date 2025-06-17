@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.bowlsace"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -21,24 +21,32 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.bowlsace"
-        // You can update the following values to match your application needs.
+        applicationId = "com.example.bowlsace"        // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 21 // Updated to at least 21 for NDK compatibility
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
-
+    
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+              // Disable code shrinking and obfuscation for now
+            isShrinkResources = false
+            isMinifyEnabled = false
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Add missing dependencies for error-prone annotations
+    implementation("com.google.errorprone:error_prone_annotations:2.23.0")
+    implementation("com.google.code.findbugs:jsr305:3.0.2") // For javax.annotation
 }
