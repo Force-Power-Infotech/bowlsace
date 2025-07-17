@@ -39,37 +39,91 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       body: _screens[_selectedIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey[900]
+              : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(22),
+            topRight: Radius.circular(22),
+          ),
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).colorScheme.secondary.withOpacity(0.18),
+              width: 1.5,
+            ),
+          ),
           boxShadow: [
             BoxShadow(
-              blurRadius: 10,
-              spreadRadius: 1,
-              color: Colors.black.withOpacity(0.1),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.black.withOpacity(0.25)
+                  : Colors.grey.withOpacity(0.13),
+              blurRadius: 18,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
-        child: BottomNavigationBar(
-          backgroundColor: Colors.transparent,
-          selectedItemColor: Colors.blueAccent,
-          unselectedItemColor: Colors.grey,
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          elevation: 0,
-          type: BottomNavigationBarType.fixed,
-          items: [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
-              label: 'Dashboard',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.sports_outlined),
-              label: 'Practice',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              label: 'Profile',
-            ),
-          ],
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(22),
+            topRight: Radius.circular(22),
+          ),
+          child: BottomNavigationBar(
+            backgroundColor: Colors.transparent,
+            selectedItemColor: Theme.of(context).colorScheme.secondary,
+            unselectedItemColor: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey[500]
+                : Colors.grey[600],
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            showSelectedLabels: true,
+            showUnselectedLabels: true,
+            items: [
+              BottomNavigationBarItem(
+                icon: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: _selectedIndex == 0
+                        ? Theme.of(context).colorScheme.secondary.withOpacity(0.13)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Icon(Icons.dashboard_outlined),
+                ),
+                label: 'Dashboard',
+              ),
+              BottomNavigationBarItem(
+                icon: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: _selectedIndex == 1
+                        ? Theme.of(context).colorScheme.secondary.withOpacity(0.13)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Icon(Icons.sports_outlined),
+                ),
+                label: 'Practice',
+              ),
+              BottomNavigationBarItem(
+                icon: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: BoxDecoration(
+                    color: _selectedIndex == 2
+                        ? Theme.of(context).colorScheme.secondary.withOpacity(0.13)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Icon(Icons.person_outline),
+                ),
+                label: 'Profile',
+              ),
+            ],
+          ),
         ),
       ),
     );
