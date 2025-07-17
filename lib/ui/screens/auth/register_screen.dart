@@ -214,7 +214,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 if (!_isPhoneVerificationStep) ...[
                   TextFormField(
                     controller: _usernameController,
-                    decoration: _inputDecoration('Username', icon: Icons.person_outline),
+                    decoration: _inputDecoration('Username', hint: 'Enter your username', icon: Icons.person_outline),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter a username';
@@ -225,7 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _firstNameController,
-                    decoration: _inputDecoration('First Name', icon: Icons.badge_outlined),
+                    decoration: _inputDecoration('First Name', hint: 'Enter your first name', icon: Icons.badge_outlined),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your first name';
@@ -236,12 +236,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _lastNameController,
-                    decoration: _inputDecoration('Last Name (Optional)', icon: Icons.badge_outlined),
+                    decoration: _inputDecoration('Last Name (Optional)', hint: 'Enter your last name (optional)', icon: Icons.badge_outlined),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _emailController,
-                    decoration: _inputDecoration('Email', icon: Icons.email_outlined),
+                    decoration: _inputDecoration('Email', hint: 'Enter your email address', icon: Icons.email_outlined),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -268,7 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
-                    decoration: _inputDecoration('Password', icon: Icons.lock_outline),
+                    decoration: _inputDecoration('Password', hint: 'Enter your password', icon: Icons.lock_outline),
                     obscureText: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
