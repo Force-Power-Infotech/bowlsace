@@ -16,6 +16,7 @@ class DrillGroupsScreen extends StatefulWidget {
 
 class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
   final _refreshKey = GlobalKey<RefreshIndicatorState>();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -213,60 +214,78 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                 ),
               )
             else ...[
-              // Featured Groups
+              // Featured Groups with search bar above
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Featured Groups',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
+                      // Search bar above heading
+                      SizedBox(
+                        height: 40,
+                        child: TextField(
+                          onChanged: (value) => setState(() => _searchQuery = value),
+                          style: theme.textTheme.bodyMedium,
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.search, size: 20),
+                            hintText: 'Search groups...',
+                            hintStyle: TextStyle(color: Colors.grey[500]),
+                            filled: true,
+                            fillColor: isDark ? Colors.grey[900] : Colors.grey[200],
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide.none,
                             ),
                           ),
-                          TextButton.icon(
-                            onPressed: () {
-                              // TODO: Navigate to all featured groups
-                            },
-                            icon: const Icon(Icons.arrow_forward),
-                            label: const Text('View All'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: theme.primaryColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                       const SizedBox(height: 16),
-                      SizedBox(
-                        height: 220,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: drillGroups
-                              .where((g) => g.isPublic)
-                              .length,
-                          itemBuilder: (context, index) {
-                            final featuredGroups = drillGroups
-                                .where((g) => g.isPublic)
-                                .toList();
-                            final group = featuredGroups[index];
-                            return Padding(
-                              padding: EdgeInsetsDirectional.only(
-                                start: index == 0 ? 0 : 16,
-                                end: index == featuredGroups.length - 1 ? 0 : 0,
-                              ),
-                              child: _FeaturedDrillGroupCard(group: group),
-                            );
-                          },
+                      Text(
+                        'Featured Groups',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      Builder(
+                        builder: (context) {
+                          final featuredGroups = drillGroups
+                              .where((g) => g.isPublic && (_searchQuery.isEmpty || g.name.toLowerCase().contains(_searchQuery.toLowerCase())))
+                              .toList();
+                          if (_searchQuery.isNotEmpty && featuredGroups.isEmpty) {
+                            return Container(
+                              height: 120,
+                              alignment: Alignment.center,
+                              child: Text(
+                                'No such group found',
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
+                          }
+                          return SizedBox(
+                            height: 220,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: featuredGroups.length,
+                              itemBuilder: (context, index) {
+                                final group = featuredGroups[index];
+                                return Padding(
+                                  padding: EdgeInsetsDirectional.only(
+                                    start: index == 0 ? 0 : 16,
+                                    end: index == featuredGroups.length - 1 ? 0 : 0,
+                                  ),
+                                  child: _FeaturedDrillGroupCard(group: group),
+                                );
+                              },
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

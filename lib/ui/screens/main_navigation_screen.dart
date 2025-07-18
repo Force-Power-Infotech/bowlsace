@@ -51,8 +51,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           decoration: BoxDecoration(
             color: navTheme.backgroundColor,
              borderRadius: const BorderRadius.only(
-               topLeft: Radius.circular(24),
-               topRight: Radius.circular(24),
+               topLeft: Radius.circular(20),
+               topRight: Radius.circular(20),
              ),
             boxShadow: [
               BoxShadow(
@@ -77,7 +77,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   decoration: selected
                       ? BoxDecoration(
                           color: navTheme.selectedItemColor,
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(30),
                         )
                       : null,
                   child: Row(
