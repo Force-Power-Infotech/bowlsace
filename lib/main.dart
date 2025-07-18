@@ -53,6 +53,7 @@ class BowlsAceApp extends StatelessWidget {
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.system,
         home: const SplashScreen(),
+        debugShowCheckedModeBanner: false,
         routes: {
           '/splash': (context) => const SplashScreen(),
           '/login': (context) => const LoginScreen(),
