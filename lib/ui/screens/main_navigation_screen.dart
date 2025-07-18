@@ -50,6 +50,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
           decoration: BoxDecoration(
             color: navTheme.backgroundColor,
+             borderRadius: const BorderRadius.only(
+               topLeft: Radius.circular(24),
+               topRight: Radius.circular(24),
+             ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.07),
