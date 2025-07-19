@@ -24,4 +24,7 @@ class ApiConfig {
   // Challenge endpoints
   static const String challenges = '/challenge';
   static const String acceptChallenge = '/challenge/{id}/accept';
+  
+  // Search endpoints
+  static const String search = '/search';
 }

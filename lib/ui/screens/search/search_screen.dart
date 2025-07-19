@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../di/service_locator.dart';
+import '../../../repositories/search_repository.dart';
+import '../../../api/services/search_api.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -9,7 +12,9 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _controller = TextEditingController();
-  List<String> _suggestions = [];
+  List<SearchResult> _results = [];
+  bool _isLoading = false;
+  String? _error;
 
   @override
   Widget build(BuildContext context) {
@@ -44,13 +49,33 @@ class _SearchScreenState extends State<SearchScreen> {
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                onChanged: (value) {
-                  // TODO: Call search API and update _suggestions
+                onChanged: (value) async {
+                  if (value.isEmpty) {
+                    setState(() {
+                      _results = [];
+                      _error = null;
+                    });
+                    return;
+                  }
+                  
                   setState(() {
-                    _suggestions = value.isEmpty
-                        ? []
-                        : List.generate(3, (i) => 'Suggestion for "$value" #${i + 1}');
+                    _isLoading = true;
+                    _error = null;
                   });
+                  
+                  try {
+                    final searchRepo = getIt<SearchRepository>();
+                    final response = await searchRepo.search(value);
+                    setState(() {
+                      _results = response.items;
+                      _isLoading = false;
+                    });
+                  } catch (e) {
+                    setState(() {
+                      _error = 'Search failed. Please try again.';
+                      _isLoading = false;
+                    });
+                  }
                 },
               ),
             ),
@@ -66,23 +91,68 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               ),
             )
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-              itemCount: _suggestions.length,
-              itemBuilder: (context, index) {
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ListTile(
-                    title: Text(_suggestions[index]),
-                    onTap: () {
-                      // TODO: Handle suggestion tap
-                    },
-                  ),
-                );
-              },
-            ),
+          : _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
+                      child: Text(
+                        _error!,
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    )
+                  : _results.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.search_off,
+                                size: 64,
+                                color: theme.colorScheme.onSurface.withOpacity(0.3),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No results found',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Try searching with different keywords',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      itemCount: _results.length,
+                      itemBuilder: (context, index) {
+                        final result = _results[index];
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            title: Text(result.name),
+                            subtitle: result.description.isNotEmpty 
+                                ? Text(result.description) 
+                                : null,
+                            leading: Icon(
+                              result.type == 'drill_group' 
+                                  ? Icons.group 
+                                  : Icons.sports,
+                            ),
+                            onTap: () {
+                              // TODO: Handle tap - implementation to be done later
+                            },
+                          ),
+                        );
+                      },
+                    ),
     );
   }
 }

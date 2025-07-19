@@ -4,8 +4,10 @@ import '../api/api_error_handler.dart';
 import '../api/services/auth_api.dart';
 import '../api/services/practice_api.dart';
 import '../api/services/drill_group_api.dart';
+import '../api/services/search_api.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/practice_repository.dart';
+import '../repositories/search_repository.dart';
 import '../utils/connectivity_service.dart';
 import '../utils/local_storage.dart';
 import '../utils/navigation_service.dart';
@@ -32,6 +34,9 @@ void setupServiceLocator() {
   getIt.registerLazySingleton<DrillGroupApi>(
     () => DrillGroupApi(getIt<ApiClient>()),
   );
+  getIt.registerLazySingleton<SearchApi>(
+    () => SearchApi(getIt<ApiClient>()),
+  );
 
   // Repositories
   getIt.registerLazySingleton<AuthRepository>(
@@ -41,6 +46,12 @@ void setupServiceLocator() {
     () => PracticeRepository(
       getIt<PracticeApi>(),
       getIt<DrillGroupApi>(),
+      getIt<LocalStorage>(),
+    ),
+  );
+  getIt.registerLazySingleton<SearchRepository>(
+    () => SearchRepository(
+      getIt<SearchApi>(),
       getIt<LocalStorage>(),
     ),
   );
