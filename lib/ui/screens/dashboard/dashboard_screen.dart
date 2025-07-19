@@ -232,7 +232,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                 ),
                 const SizedBox(width: 8),
-                // Search icon button
+                // Search icon button (top right)
                 if (!_showSearch)
                   GestureDetector(
                     onTap: () {
@@ -243,7 +243,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Container(
                       width: 40,
                       height: 40,
-                      margin: const EdgeInsets.only(right: 8),
+                      // No margin, flush right
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary.withOpacity(0.1),
                         shape: BoxShape.circle,
@@ -254,21 +254,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
-                // Logout button
-                GestureDetector(
-                  onTap: _logout,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.logout_rounded,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
               ],
             ),
           const SizedBox(height: 24),
