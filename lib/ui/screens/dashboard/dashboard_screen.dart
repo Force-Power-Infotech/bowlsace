@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../ui/screens/search/search_screen.dart';
 import '../../../di/service_locator.dart';
 
 import '../../../providers/user_provider.dart';
@@ -17,8 +18,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  bool _showSearch = false;
-  final TextEditingController _searchController = TextEditingController();
+  // Removed unused _showSearch and _searchController
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -154,106 +154,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: _showSearch
-                      ? Container(
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface,
-                            borderRadius: BorderRadius.circular(50),
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.shadowColor.withOpacity(0.04),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: FocusScope(
-                            child: Focus(
-                              onFocusChange: (hasFocus) {
-                                if (!hasFocus) {
-                                  setState(() {
-                                    _showSearch = false;
-                                    _searchController.clear();
-                                  });
-                                }
-                              },
-                              child: TextField(
-                                controller: _searchController,
-                                autofocus: true,
-                                decoration: InputDecoration(
-                                  prefixIcon: Icon(
-                                    Icons.search,
-                                    color: theme.colorScheme.onSurface.withOpacity(0.4),
-                                  ),
-                                  hintText: 'Search drills and groups...',
-                                  hintStyle: TextStyle(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.4),
-                                  ),
-                                  filled: true,
-                                  fillColor: theme.colorScheme.surface,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 0),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide(
-                                      color: theme.colorScheme.primary.withOpacity(0.15),
-                                      width: 1.2,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                    borderSide: BorderSide(
-                                      color: theme.colorScheme.primary,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    borderSide: BorderSide(
-                                      color: theme.colorScheme.primary.withOpacity(0.15),
-                                      width: 1.2,
-                                    ),
-                                  ),
-                                ),
-                                onChanged: (value) {
-                                  // TODO: Implement search functionality
-                                },
-                              ),
-                            ),
-                          ),
-                        )
-                      : Text(
-                          userProvider.user!.firstName ??
-                              userProvider.user!.username ??
-                              'Bowler',
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                  child: Text(
+                    userProvider.user!.firstName ??
+                        userProvider.user!.username ??
+                        'Bowler',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 // Search icon button (top right)
-                if (!_showSearch)
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _showSearch = true;
-                      });
-                    },
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      // No margin, flush right
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
-                        shape: BoxShape.circle,
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SearchScreen(),
                       ),
-                      child: Icon(
-                        Icons.search,
-                        color: theme.colorScheme.primary,
-                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.search,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
+                ),
               ],
             ),
           const SizedBox(height: 24),

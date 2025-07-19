@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../../../ui/screens/search/search_screen.dart';
 import '../../../models/drill_group.dart';
 import '../../../providers/practice_provider.dart';
 import '../../../providers/user_provider.dart';
@@ -224,19 +225,30 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                       // Search bar above heading
                       SizedBox(
                         height: 40,
-                        child: TextField(
-                          onChanged: (value) => setState(() => _searchQuery = value),
-                          style: theme.textTheme.bodyMedium,
-                          decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.search, size: 20),
-                            hintText: 'Search groups...',
-                            hintStyle: TextStyle(color: Colors.grey[500]),
-                            filled: true,
-                            fillColor: isDark ? Colors.grey[900] : Colors.grey[200],
-                            contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-                            border: OutlineInputBorder(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SearchScreen(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.grey[900] : Colors.grey[200],
                               borderRadius: BorderRadius.circular(20),
-                              borderSide: BorderSide.none,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.search, size: 20, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Search groups...',
+                                  style: TextStyle(color: Colors.grey[500], fontSize: 16),
+                                ),
+                              ],
                             ),
                           ),
                         ),
