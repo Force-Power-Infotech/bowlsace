@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../di/service_locator.dart';
 import '../../../utils/local_storage.dart';
 import '../../../api/api_error_handler.dart';
+import '../../../providers/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,7 +14,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
-  bool _darkMode = false;
   bool _offlineMode = false;
   String _distanceUnit = 'meters'; // meters or feet
   bool _isLoading = false;
@@ -37,13 +37,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final notificationsEnabled = await _localStorage.getItem(
         'notificationsEnabled',
       );
-      final darkMode = await _localStorage.getItem('darkMode');
       final offlineMode = await _localStorage.getItem('offlineMode');
       final distanceUnit = await _localStorage.getItem('distanceUnit');
 
       setState(() {
         _notificationsEnabled = notificationsEnabled ?? true;
-        _darkMode = darkMode ?? false;
         _offlineMode = offlineMode ?? false;
         _distanceUnit = distanceUnit ?? 'meters';
       });
@@ -66,7 +64,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'notificationsEnabled',
         _notificationsEnabled,
       );
-      await _localStorage.setItem('darkMode', _darkMode);
       await _localStorage.setItem('offlineMode', _offlineMode);
       await _localStorage.setItem('distanceUnit', _distanceUnit);
 
@@ -87,6 +84,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: _isLoading
@@ -104,11 +103,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SwitchListTile(
                   title: const Text('Dark Mode'),
                   subtitle: const Text('Use dark theme'),
-                  value: _darkMode,
+                  value: themeProvider.isDarkMode,
                   onChanged: (value) {
-                    setState(() {
-                      _darkMode = value;
-                    });
+                    themeProvider.toggleTheme();
                   },
                 ),
                 const Divider(),

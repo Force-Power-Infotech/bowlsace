@@ -5,6 +5,7 @@ import 'providers/user_provider.dart';
 import 'providers/practice_provider.dart';
 import 'providers/challenge_provider.dart';
 import 'providers/drill_provider.dart';
+import 'providers/theme_provider.dart';
 import 'utils/navigation_service.dart';
 import 'ui/theme/app_theme.dart';
 import 'models/practice_session.dart';
@@ -45,51 +46,57 @@ class BowlsAceApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PracticeProvider()),
         ChangeNotifierProvider(create: (_) => ChallengeProvider()),
         ChangeNotifierProvider(create: (_) => DrillProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: MaterialApp(
-        title: 'BowlsAce',
-        navigatorKey: getIt<NavigationService>().navigatorKey,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
-        home: const SplashScreen(),
-        debugShowCheckedModeBanner: false,
-        routes: {
-          '/splash': (context) => const SplashScreen(),
-          '/login': (context) => const LoginScreen(),
-          '/register': (context) => const RegisterScreen(),
-          '/dashboard': (context) => const MainNavigationScreen(),
-          '/practice': (context) =>
-              const MainNavigationScreen(selectedIndex: 1),
-          '/practice/new': (context) => const CreatePracticeScreen(),
-          '/practice/history': (context) => const PracticeHistoryScreen(),
-          '/challenges': (context) =>
-              const MainNavigationScreen(selectedIndex: 2),
-          '/profile': (context) => const MainNavigationScreen(selectedIndex: 3),
-          '/drill-group/new': (context) => const CreateDrillGroupScreen(),
-          '/settings': (context) => const SettingsScreen(),
-        },
-        onGenerateRoute: (settings) {
-          if (settings.name == '/practice/details') {
-            final session = settings.arguments as Session;
-            return MaterialPageRoute(
-              builder: (context) => PracticeDetailsScreen(session: session),
-            );
-          }
-          if (settings.name == '/drill-group/details') {
-            final drillGroup = settings.arguments as DrillGroup;
-            return MaterialPageRoute(
-              builder: (context) => DrillListScreen(drillGroup: drillGroup),
-            );
-          }
-          if (settings.name == '/challenge/details') {
-            final challenge = settings.arguments as Challenge;
-            return MaterialPageRoute(
-              builder: (context) =>
-                  ChallengeDetailsScreen(challenge: challenge),
-            );
-          }
-          return null;
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            title: 'BowlsAce',
+            navigatorKey: getIt<NavigationService>().navigatorKey,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
+            home: const SplashScreen(),
+            debugShowCheckedModeBanner: false,
+            routes: {
+              '/splash': (context) => const SplashScreen(),
+              '/login': (context) => const LoginScreen(),
+              '/register': (context) => const RegisterScreen(),
+              '/dashboard': (context) => const MainNavigationScreen(),
+              '/practice': (context) =>
+                  const MainNavigationScreen(selectedIndex: 1),
+              '/practice/new': (context) => const CreatePracticeScreen(),
+              '/practice/history': (context) => const PracticeHistoryScreen(),
+              '/challenges': (context) =>
+                  const MainNavigationScreen(selectedIndex: 2),
+              '/profile': (context) =>
+                  const MainNavigationScreen(selectedIndex: 3),
+              '/drill-group/new': (context) => const CreateDrillGroupScreen(),
+              '/settings': (context) => const SettingsScreen(),
+            },
+            onGenerateRoute: (settings) {
+              if (settings.name == '/practice/details') {
+                final session = settings.arguments as Session;
+                return MaterialPageRoute(
+                  builder: (context) => PracticeDetailsScreen(session: session),
+                );
+              }
+              if (settings.name == '/drill-group/details') {
+                final drillGroup = settings.arguments as DrillGroup;
+                return MaterialPageRoute(
+                  builder: (context) => DrillListScreen(drillGroup: drillGroup),
+                );
+              }
+              if (settings.name == '/challenge/details') {
+                final challenge = settings.arguments as Challenge;
+                return MaterialPageRoute(
+                  builder: (context) =>
+                      ChallengeDetailsScreen(challenge: challenge),
+                );
+              }
+              return null;
+            },
+          );
         },
       ),
     );
