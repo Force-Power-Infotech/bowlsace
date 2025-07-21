@@ -28,16 +28,17 @@ class Drill {
   });
 
   factory Drill.fromJson(Map<String, dynamic> json) {
+    // Handle fields according to the API response shown in Swagger UI
     return Drill(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
       imageUrl: json['image_url'] as String?,
       durationMinutes: json['duration_minutes'] as int? ?? 30,
       difficulty: (json['difficulty'] as num? ?? 3.0).toDouble(),
-      tags:
-          (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
-          [],
+      tags: json['tags'] != null 
+          ? (json['tags'] as List<dynamic>).map((e) => e.toString()).toList()
+          : [],
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
