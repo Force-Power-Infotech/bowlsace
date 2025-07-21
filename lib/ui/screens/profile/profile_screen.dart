@@ -45,10 +45,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _loadUserData() {
     final user = Provider.of<UserProvider>(context, listen: false).user;
     if (user != null) {
-      _firstNameController.text = user.firstName ?? '';
-      _lastNameController.text = user.lastName ?? '';
+      _firstNameController.text = user.fullName ?? '';
+      // _lastNameController.text = user.lastName ?? '';
       _emailController.text = user.email ?? '';
-      _phoneController.text = user.phone ?? user.phoneNumber;
+      _phoneController.text = user.email ?? '';
     }
   }
 
@@ -151,13 +151,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _getAvatarText(User user) {
-    if (user.firstName?.isNotEmpty == true) {
-      return user.firstName![0].toUpperCase();
+    if (user.fullName?.isNotEmpty == true) {
+      return user.fullName![0].toUpperCase();
     }
     if (user.username?.isNotEmpty == true) {
       return user.username![0].toUpperCase();
     }
-    return user.phoneNumber[0].toUpperCase();
+    return user.email![0].toUpperCase();
   }
 
   @override
@@ -253,9 +253,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               children: [
                                 // Name or username
                                 Text(
-                                  user.firstName != null &&
-                                          user.lastName != null
-                                      ? '${user.firstName!} ${user.lastName!}'
+                                  user.fullName != null &&
+                                          user.fullName != null
+                                      ? '${user.fullName!}'
                                       : user.username ?? 'Player',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -275,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      user.phoneNumber,
+                                      user.email!,
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.9),
                                         fontSize: 16,

@@ -3,10 +3,10 @@ class User {
   final String? username;
   final String? email;
   final String? fullName;
-  final bool isActive;
-  final bool isAdmin;
-  final bool phoneVerified;
-  final bool emailVerified;
+  final bool? isActive;
+  final bool? isAdmin;
+  final bool? phoneVerified;
+  final bool? emailVerified;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -15,38 +15,28 @@ class User {
     this.username,
     this.email,
     this.fullName,
-    this.isActive = true,
-    this.isAdmin = false,
-    this.phoneVerified = false,
-    this.emailVerified = false,
+    this.isActive,
+    this.isAdmin,
+    this.phoneVerified,
+    this.emailVerified,
     this.createdAt,
     this.updatedAt,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
-    try {
-      return User(
-        id: json['id'] as int? ?? 0,
-        username: json['username'] as String?,
-        email: json['email'] as String?,
-        fullName: json['full_name'] as String?,
-        isActive: json['is_active'] as bool? ?? true,
-        isAdmin: json['is_admin'] as bool? ?? false,
-        phoneVerified: json['phone_verified'] as bool? ?? false,
-        emailVerified: json['email_verified'] as bool? ?? false,
-        createdAt: json['created_at'] != null
-            ? DateTime.parse(json['created_at'].toString())
-            : null,
-        updatedAt: json['updated_at'] != null && json['updated_at'] != "null"
-            ? DateTime.parse(json['updated_at'].toString())
-            : null,
-      );
-    } catch (e, stackTrace) {
-      print('Error parsing User from JSON: $e');
-      print('Stack trace: $stackTrace');
-      print('JSON data: $json');
-      rethrow;
-    }
+    return User(
+      id: json['id'],
+      username: json['username'],
+      email: json['email'],
+      phoneNumber: json['phone_number'],
+      phone: json['phone'],
+      firstName: json['first_name'],
+      lastName: json['last_name'],
+      profilePictureUrl: json['profile_picture_url'],
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -54,13 +44,12 @@ class User {
       'id': id,
       if (username != null) 'username': username,
       if (email != null) 'email': email,
-      if (fullName != null) 'full_name': fullName,
-      'is_active': isActive,
-      'is_admin': isAdmin,
-      'phone_verified': phoneVerified,
-      'email_verified': emailVerified,
+      'phone_number': phoneNumber,
+      if (phone != null) 'phone': phone,
+      if (firstName != null) 'first_name': firstName,
+      if (lastName != null) 'last_name': lastName,
+      if (profilePictureUrl != null) 'profile_picture_url': profilePictureUrl,
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
-      if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
     };
   }
 }

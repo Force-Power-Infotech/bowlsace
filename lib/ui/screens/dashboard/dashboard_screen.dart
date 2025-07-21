@@ -155,7 +155,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    userProvider.user!.firstName ??
+                    userProvider.user?.fullName ??
                         userProvider.user!.username ??
                         'Bowler',
                     style: const TextStyle(

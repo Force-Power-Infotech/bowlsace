@@ -104,83 +104,28 @@ class PracticeSessionService {
         queryParameters: queryParams,
       );
 
-      print('API response type: ${response.runtimeType}');
-      print(
-        'API response sample: ${response is List ? (response.isNotEmpty ? response[0] : "empty list") : response}',
-      );
-
-      // Handle direct list response format (new API format)
       if (response is List) {
-        print(
-          'Received list response with ${response.length} practice sessions',
-        );
-        final List<PracticeSession> sessions = [];
-        for (var i = 0; i < response.length; i++) {
-          final item = response[i];
-          if (item is Map<String, dynamic>) {
-            try {
+        List<PracticeSession> sessions = [];
+        for (var item in response) {
+          try {
+            if (item is Map<String, dynamic>) {
               sessions.add(PracticeSession.fromJson(item));
-              print(
-                'Successfully parsed practice session ${i + 1}/${response.length}',
-              );
-            } catch (e) {
-              print('Error parsing practice session item ${i + 1}: $e');
-              print('Problem item: $item');
             }
-          } else {
-            print('Item at index $i is not a Map: ${item.runtimeType}');
+          } catch (e) {
+            print('Error parsing practice session: $e');
+            print('Problem item: $item');
           }
         }
-
-        if (sessions.isEmpty && response.isNotEmpty) {
-          print('Warning: Could not parse any practice sessions from response');
-        }
-
         return sessions;
+      } else {
+        print('Unexpected response format: ${response.runtimeType}');
+        print('Response: $response');
+        return [];
       }
-
-      // Handle Map response
-      if (response is Map) {
-        final responseMap = response;
-        // Check for data field (older API format)
-        if (responseMap.containsKey('data')) {
-          final data = responseMap['data'];
-          if (data is List) {
-            print('Received data field with ${data.length} practice sessions');
-            final List<PracticeSession> sessions = [];
-            for (var i = 0; i < data.length; i++) {
-              final item = data[i];
-              if (item is Map<String, dynamic>) {
-                try {
-                  sessions.add(PracticeSession.fromJson(item));
-                } catch (e) {
-                  print(
-                    'Error parsing practice session item from data field: $e',
-                  );
-                }
-              }
-            }
-            return sessions;
-          }
-        }
-
-        // Try to parse as a single item
-        try {
-          return [
-            PracticeSession.fromJson(responseMap as Map<String, dynamic>),
-          ];
-        } catch (e) {
-          print('Error parsing single response: $e');
-        }
-      }
-
-      print('Unhandled response format: ${response.runtimeType}');
-      return [];
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('Error getting practice sessions: $e');
-      // Don't throw an exception, just return empty list and log the error
-      print('Returning empty list instead of throwing exception');
-      return [];
+      print('Stack trace: $stackTrace');
+      rethrow;
     }
   }
 }

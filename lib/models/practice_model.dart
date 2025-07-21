@@ -24,18 +24,41 @@ class PracticeSession {
   });
 
   factory PracticeSession.fromJson(Map<String, dynamic> json) {
-    return PracticeSession(
-      id: json['id'] as int,
-      userId: json['user_id'] as int,
-      drillGroupId: json['drill_group_id'] as int,
-      drillId: json['drill_id'] as int,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      drill: json['drill'] != null ? Drill.fromJson(json['drill']) : null,
-      drillGroup: json['drill_group'] != null
-          ? DrillGroup.fromJson(json['drill_group'])
-          : null,
-      user: json['user'] != null ? User.fromJson(json['user']) : null,
-    );
+    try {
+      print('Creating PracticeSession from JSON:');
+      print('id: ${json['id']}');
+      print('user_id: ${json['user_id']}');
+      print('drill_group_id: ${json['drill_group_id']}');
+      print('drill_id: ${json['drill_id']}');
+      print('created_at: ${json['created_at']}');
+      print('drill: ${json['drill']}');
+      print('drill_group: ${json['drill_group']}');
+      print('user: ${json['user']}');
+
+      return PracticeSession(
+        id: json['id'] as int? ?? 0,
+        userId: json['user_id'] as int? ?? 0,
+        drillGroupId: json['drill_group_id'] as int? ?? 0,
+        drillId: json['drill_id'] as int? ?? 0,
+        createdAt: json['created_at'] != null
+            ? DateTime.parse(json['created_at'].toString())
+            : DateTime.now(),
+        drill: json['drill'] != null
+            ? Drill.fromJson(json['drill'] as Map<String, dynamic>)
+            : null,
+        drillGroup: json['drill_group'] != null
+            ? DrillGroup.fromJson(json['drill_group'] as Map<String, dynamic>)
+            : null,
+        user: json['user'] != null
+            ? User.fromJson(json['user'] as Map<String, dynamic>)
+            : null,
+      );
+    } catch (e, stackTrace) {
+      print('Error parsing practice session: $e');
+      print('Stack trace: $stackTrace');
+      print('JSON data: $json');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {

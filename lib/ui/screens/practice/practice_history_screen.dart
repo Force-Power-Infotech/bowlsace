@@ -18,6 +18,34 @@ class _PracticeHistoryScreenState extends State<PracticeHistoryScreen> {
   final _errorHandler = getIt<ApiErrorHandler>();
   bool _isInitialized = false;
 
+  Color _getDifficultyColor(int level) {
+    switch (level) {
+      case 1:
+        return Colors.green;
+      case 2:
+        return Colors.blue;
+      case 3:
+        return Colors.orange;
+      case 4:
+        return Colors.deepOrange;
+      default:
+        return Colors.red;
+    }
+  }
+
+  IconData _getDrillTypeIcon(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'speed':
+        return Icons.speed;
+      case 'accuracy':
+        return Icons.gps_fixed;
+      case 'power':
+        return Icons.fitness_center;
+      default:
+        return Icons.sports_cricket;
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -165,95 +193,146 @@ class _PracticeHistoryScreenState extends State<PracticeHistoryScreen> {
   Widget _buildSessionCard(BuildContext context, PracticeSession session) {
     final theme = Theme.of(context);
     final dateFormat = DateFormat('MMM d, yyyy • h:mm a');
+    final difficultyLevel = (session.drill?.difficulty ?? 0).toInt();
+    final difficultyColor = _getDifficultyColor(difficultyLevel);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.sports_cricket,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        session.drill?.name ?? 'Unknown Drill',
-                        style: theme.textTheme.titleMedium,
+      elevation: 4,
+      shadowColor: theme.shadowColor.withOpacity(0.1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.dividerColor.withOpacity(0.1), width: 1),
+      ),
+      child: InkWell(
+        onTap: () {
+          // TODO: Navigate to session details
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withOpacity(0.2),
+                        width: 1,
                       ),
-                      Text(
-                        dateFormat.format(session.createdAt),
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
+                    ),
+                    child: Icon(
+                      _getDrillTypeIcon(session.drill?.drillType),
+                      color: theme.colorScheme.primary,
+                      size: 28,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Divider(),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildInfoItem(
-                  context,
-                  'Drill Group',
-                  session.drillGroup?.name ?? 'Unknown Group',
-                ),
-                _buildInfoItem(
-                  context,
-                  'Difficulty',
-                  _getDifficultyText(
-                    session.drill?.difficulty != null
-                        ? session.drill!.difficulty.toInt()
-                        : 0,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          session.drill?.name ?? 'Unknown Drill',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          dateFormat.format(session.createdAt),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.textTheme.bodySmall?.color
+                                ?.withOpacity(0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: difficultyColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: difficultyColor.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            _getDifficultyText(difficultyLevel),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: difficultyColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                _buildInfoItem(
-                  context,
-                  'Duration',
-                  '${session.drill?.durationMinutes ?? 0} min',
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildInfoItem(
+                    context,
+                    Icons.group_work_outlined,
+                    'Group',
+                    session.drillGroup?.name ?? 'Unknown',
+                  ),
+                  _buildInfoItem(
+                    context,
+                    Icons.timer_outlined,
+                    'Duration',
+                    '${session.drill?.durationMinutes ?? 0} min',
+                  ),
+                  _buildInfoItem(
+                    context,
+                    Icons.track_changes_outlined,
+                    'Target',
+                    '${session.drill?.targetScore ?? 0} points',
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildInfoItem(BuildContext context, String label, String value) {
+  Widget _buildInfoItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+  ) {
     final theme = Theme.of(context);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Icon(icon, size: 20, color: theme.colorScheme.primary.withOpacity(0.7)),
+        const SizedBox(height: 4),
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w500,
-            color: theme.colorScheme.onSurface.withOpacity(0.6),
+            color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           value,
           style: theme.textTheme.bodyMedium?.copyWith(
