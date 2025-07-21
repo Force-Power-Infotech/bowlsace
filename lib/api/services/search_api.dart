@@ -16,9 +16,9 @@ class SearchResult {
 
   factory SearchResult.fromJson(Map<String, dynamic> json) {
     return SearchResult(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      type: json['type'] as String,
+      id: json['id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
+      type: json['type'] as String? ?? 'drill',
       description: json['description'] as String? ?? '',
     );
   }
@@ -58,6 +58,28 @@ class SearchApi {
       queryParameters: queryParams,
     );
 
-    return SearchResponse.fromJson(response);
+    // Handle different response formats
+    List<dynamic> itemsList;
+    int total = 0;
+
+    if (response.containsKey('data') && response['data'] is Map) {
+      final data = response['data'] as Map<String, dynamic>;
+      itemsList = data['items'] as List<dynamic>? ?? [];
+      total = data['total'] as int? ?? itemsList.length;
+    } else if (response.containsKey('items') && response['items'] is List) {
+      itemsList = response['items'] as List<dynamic>;
+      total = response['total'] as int? ?? itemsList.length;
+    } else {
+      // If response is directly a list or unexpected format
+      itemsList = response is List ? response : [];
+      total = itemsList.length;
+    }
+
+    return SearchResponse(
+      items: itemsList
+          .map((item) => SearchResult.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      total: total,
+    );
   }
 }

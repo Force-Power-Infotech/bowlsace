@@ -50,10 +50,7 @@ void setupServiceLocator() {
     ),
   );
   getIt.registerLazySingleton<SearchRepository>(
-    () => SearchRepository(
-      getIt<SearchApi>(),
-      getIt<LocalStorage>(),
-    ),
+    () => SearchRepository(getIt<SearchApi>(), getIt<LocalStorage>()),
   );
 
   // Services
