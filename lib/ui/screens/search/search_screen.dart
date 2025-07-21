@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../di/service_locator.dart';
 import '../../../repositories/search_repository.dart';
 import '../../../api/services/search_api.dart';
+import '../../../api/services/drill_group_api.dart';
 import '../../widgets/drill_details_modal.dart';
+import '../practice/drill_list_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -147,9 +149,48 @@ class _SearchScreenState extends State<SearchScreen> {
                                   ? Icons.group 
                                   : Icons.sports,
                             ),
-                            onTap: () {
+                            onTap: () async {
                               if (result.type == 'drill') {
                                 showDrillDetailsModal(context, result.id);
+                              } else if (result.type == 'drill_group') {
+                                try {
+                                  // Get the drill group API
+                                  final drillGroupApi = getIt<DrillGroupApi>();
+                                  
+                                  // Show a loading indicator
+                                  showDialog(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (context) => const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                  
+                                  // Get drill group details
+                                  final drillGroup = await drillGroupApi.getDrillGroup(result.id);
+                                  
+                                  // Navigate to the drill list screen
+                                  if (context.mounted) {
+                                    Navigator.of(context, rootNavigator: true).pop(); // Close loading dialog
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => DrillListScreen(drillGroup: drillGroup),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  // Close loading dialog if error occurs
+                                  if (context.mounted) {
+                                    Navigator.of(context, rootNavigator: true).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Failed to load drill group details'),
+                                        backgroundColor: Theme.of(context).colorScheme.error,
+                                      ),
+                                    );
+                                  }
+                                }
                               }
                             },
                           ),
