@@ -18,6 +18,7 @@ class ApiConfig {
 
   // Practice endpoints
   static const String drills = '/drills';
+  static const String drill = '/drill'; // Single drill endpoint
   static const String drillGroups = '/drill-groups';
   static const String practiceSession = '/practice/sessions';
 

@@ -54,13 +54,10 @@ class DrillApi {
   }
 
   Future<Drill> getDrill(int drillId) async {
-    final response = await _apiClient.get('${ApiConfig.drills}/$drillId');
-
-    if (response.containsKey('data')) {
-      return Drill.fromJson(response['data'] as Map<String, dynamic>);
-    } else {
-      return Drill.fromJson(response);
-    }
+    final response = await _apiClient.get('${ApiConfig.drill}/$drillId');
+    
+    // Based on the Swagger screenshot, the response is the drill object directly
+    return Drill.fromJson(response as Map<String, dynamic>);
   }
 
   // For admin functionality

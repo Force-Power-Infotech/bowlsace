@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../di/service_locator.dart';
 import '../../../repositories/search_repository.dart';
 import '../../../api/services/search_api.dart';
+import '../../widgets/drill_details_modal.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -147,7 +148,9 @@ class _SearchScreenState extends State<SearchScreen> {
                                   : Icons.sports,
                             ),
                             onTap: () {
-                              // TODO: Handle tap - implementation to be done later
+                              if (result.type == 'drill') {
+                                showDrillDetailsModal(context, result.id);
+                              }
                             },
                           ),
                         );
