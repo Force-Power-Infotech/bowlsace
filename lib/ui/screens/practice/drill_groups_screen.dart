@@ -255,7 +255,7 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Featured Groups',
+                        'List of Drills',
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.5,
@@ -312,7 +312,7 @@ class _DrillGroupsScreenState extends State<DrillGroupsScreen> {
                 ),
                 sliver: SliverToBoxAdapter(
                   child: Text(
-                    'PRACTICE HISTORY',
+                    'Practice History',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
