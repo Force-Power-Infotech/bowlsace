@@ -48,7 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _firstNameController.text = user.fullName ?? '';
       // _lastNameController.text = user.lastName ?? '';
       _emailController.text = user.email ?? '';
-      _phoneController.text = user.email ?? '';
+      // Phone number will be added when the field is available in the User model
     }
   }
 
@@ -151,13 +151,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _getAvatarText(User user) {
-    if (user.fullName?.isNotEmpty == true) {
+    if (user.fullName != null && user.fullName!.isNotEmpty) {
       return user.fullName![0].toUpperCase();
     }
-    if (user.username?.isNotEmpty == true) {
+    if (user.username != null && user.username!.isNotEmpty) {
       return user.username![0].toUpperCase();
     }
-    return user.email![0].toUpperCase();
+    if (user.email != null && user.email!.isNotEmpty) {
+      return user.email![0].toUpperCase();
+    }
+    return 'U'; // Default fallback if no valid text is available
   }
 
   @override
@@ -253,9 +256,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               children: [
                                 // Name or username
                                 Text(
-                                  user.fullName != null &&
-                                          user.fullName != null
-                                      ? '${user.fullName!}'
+                                  user.fullName != null
+                                      ? user.fullName!
                                       : user.username ?? 'Player',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -269,13 +271,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Row(
                                   children: [
                                     Icon(
-                                      Icons.phone,
+                                      Icons.email,
                                       size: 16,
                                       color: Colors.white.withOpacity(0.9),
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      user.email!,
+                                      user.email ?? 'No email',
                                       style: TextStyle(
                                         color: Colors.white.withOpacity(0.9),
                                         fontSize: 16,
