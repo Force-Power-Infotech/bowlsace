@@ -1,5 +1,5 @@
 class ApiConfig {
-  static const String baseUrl = 'http://ledboard.forcempower.com:8000/api/v1';
+  static const String baseUrl = 'https://ledboard.forcempower.com:8443/api/v1';
 
   // Auth endpoints
   static const String login = '/auth/login';
@@ -25,7 +25,7 @@ class ApiConfig {
   // Challenge endpoints
   static const String challenges = '/challenge';
   static const String acceptChallenge = '/challenge/{id}/accept';
-  
+
   // Search endpoints
   static const String search = '/search';
 }

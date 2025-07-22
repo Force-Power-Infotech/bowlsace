@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import '../utils/secure_storage.dart';
 import './api_config.dart';
 
@@ -17,7 +19,15 @@ class ApiException implements Exception {
 
 class NetworkException implements Exception {
   final String message;
-  NetworkException(this.message);
+  final dynamic error;
+  final StackTrace? stackTrace;
+
+  NetworkException(this.message, {this.error, this.stackTrace});
+
+  @override
+  String toString() {
+    return 'NetworkException: $message${error != null ? '\nError: $error' : ''}${stackTrace != null ? '\nStack trace:\n$stackTrace' : ''}';
+  }
 }
 
 class TokenManager {
@@ -88,6 +98,24 @@ class TokenManager {
 class ApiClient {
   final String baseUrl = ApiConfig.baseUrl;
   final TokenManager _tokenManager = TokenManager();
+  late final http.Client _client;
+
+  ApiClient() {
+    final clientIO = HttpClient()
+      ..badCertificateCallback = (cert, host, port) {
+        developer.log(
+          'Accepting self-signed certificate',
+          error: {
+            'host': host,
+            'port': port,
+            'issuer': cert.issuer,
+            'subject': cert.subject,
+          },
+        );
+        return true; // Allow self-signed certificates
+      };
+    _client = IOClient(clientIO);
+  }
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await _tokenManager.getToken();
@@ -110,19 +138,32 @@ class ApiClient {
         url = url.replace(queryParameters: queryParameters);
       }
 
-      developer.log('API POST Request: $url');
-      if (body != null) {
-        developer.log('Body: ${jsonEncode(body)}');
-      }
+      // Log outgoing request details
+      developer.log(
+        'API POST Request',
+        error: {
+          'url': url.toString(),
+          'headers': headers,
+          'body': body != null ? jsonEncode(body) : null,
+        },
+      );
 
-      final response = await http.post(
+      final response = await _client.post(
         url,
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
       );
 
-      developer.log('API Response Status: ${response.statusCode}');
-      developer.log('API Response Body: ${response.body}');
+      // Log response details
+      developer.log(
+        'API Response',
+        error: {
+          'url': url.toString(),
+          'statusCode': response.statusCode,
+          'headers': response.headers,
+          'body': response.body,
+        },
+      );
 
       if (response.statusCode == 401) {
         throw UnauthorizedException('Unauthorized request');
@@ -136,11 +177,18 @@ class ApiClient {
       }
 
       return json.decode(response.body);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      developer.log('API Error', error: e, stackTrace: stackTrace);
+
       if (e is ApiException || e is UnauthorizedException) {
         rethrow;
       }
-      throw NetworkException('Network error: $e');
+
+      throw NetworkException(
+        'Network error occurred while making POST request to $path',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -157,7 +205,7 @@ class ApiClient {
 
       developer.log('API GET Request: $url');
 
-      final response = await http.get(url, headers: headers);
+      final response = await _client.get(url, headers: headers);
 
       developer.log('API Response Status: ${response.statusCode}');
       developer.log('API Response Body: ${response.body}');
@@ -199,7 +247,7 @@ class ApiClient {
         developer.log('Body: ${jsonEncode(body)}');
       }
 
-      final response = await http.put(
+      final response = await _client.put(
         url,
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
@@ -241,7 +289,7 @@ class ApiClient {
 
       developer.log('API DELETE Request: $url');
 
-      final response = await http.delete(url, headers: headers);
+      final response = await _client.delete(url, headers: headers);
 
       developer.log('API Response Status: ${response.statusCode}');
       developer.log('API Response Body: ${response.body}');

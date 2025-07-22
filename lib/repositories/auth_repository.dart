@@ -102,15 +102,29 @@ class AuthRepository {
     return await attemptAutoLogin();
   }
 
-  Future<bool> requestOtp(String phoneNumber) async {
-    try {
-      await _secureStorage.write(key: 'phone_number', value: phoneNumber);
-      final response = await _authApi.requestOtp(phoneNumber);
-      return response['success'] == true;
-    } catch (e) {
-      rethrow;
-    }
+Future<bool> requestOtp(String phoneNumber) async {
+  try {
+    print('[requestOtp] 📞 Requested phone number: $phoneNumber');
+
+    // Store number securely
+    await _secureStorage.write(key: 'phone_number', value: phoneNumber);
+    print('[requestOtp] 🔐 Phone number written to secure storage');
+
+    // Send API request
+    final response = await _authApi.requestOtp(phoneNumber);
+    print('[requestOtp] 📡 Response received: $response');
+
+    final success = response['success'] == true;
+    print('[requestOtp] ✅ OTP request status: $success');
+
+    return success;
+  } catch (e, stacktrace) {
+    print('[requestOtp] ❌ Error occurred: $e');
+    print('[requestOtp] 🪵 Stacktrace: $stacktrace');
+    rethrow;
   }
+}
+
 
   Future<Map<String, dynamic>> verifyOtp(String phoneNumber, String otp) async {
     try {
