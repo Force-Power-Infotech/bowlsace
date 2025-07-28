@@ -63,7 +63,9 @@ class DrillGroup {
       image: json['image'] as String?,
       userId: json['user_id'] as int? ?? 0,
       isPublic: json['is_public'] as bool? ?? true,
-      difficulty: json['difficulty'] as int? ?? 1,
+      difficulty: json['difficulty'] != null
+          ? int.tryParse(json['difficulty'].toString()) ?? 1
+          : 1,
       tags:
           (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           [],

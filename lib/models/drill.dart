@@ -35,8 +35,10 @@ class Drill {
       description: json['description'] as String? ?? '',
       imageUrl: json['image_url'] as String?,
       durationMinutes: json['duration_minutes'] as int? ?? 30,
-      difficulty: (json['difficulty'] as num? ?? 3.0).toDouble(),
-      tags: json['tags'] != null 
+      difficulty: json['difficulty'] != null
+          ? double.tryParse(json['difficulty'].toString()) ?? 3.0
+          : 3.0,
+      tags: json['tags'] != null
           ? (json['tags'] as List<dynamic>).map((e) => e.toString()).toList()
           : [],
       createdAt: json['created_at'] != null

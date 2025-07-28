@@ -1,44 +1,41 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../api_client.dart';
 import '../api_config.dart';
 import '../../models/drill_group.dart';
 
 class DrillGroupService {
-  final String baseUrl = ApiConfig.baseUrl;
+  final ApiClient _apiClient = ApiClient();
 
   Future<List<DrillGroup>> getDrillGroups({
     int skip = 0,
     int limit = 100,
   }) async {
     try {
-      final url = Uri.parse(
-          '$baseUrl${ApiConfig.drillGroups}?skip=$skip&limit=$limit');
-      print('[API] 🌐 GET drill groups: $url');
+      print('🔄 Getting drill groups... skip: $skip, limit: $limit');
 
-      final response = await http.get(url);
+      final response = await _apiClient.get(
+        ApiConfig.drillGroups,
+        queryParameters: {'skip': skip.toString(), 'limit': limit.toString()},
+      );
 
-      print('[API] 📥 Response status: ${response.statusCode}');
-      print('[API] 📦 Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final List<dynamic> jsonResponse = json.decode(response.body);
-        return jsonResponse.map((json) => DrillGroup.fromJson({
-          'id': json['id'],
-          'name': json['name'],
-          'description': json['description'],
-          'userId': json['user_id'],
-          'isPublic': json['is_public'],
-          'difficulty': json['difficulty'],
-          'tags': json['tags'],
-          'createdAt': json['created_at'],
-          'updatedAt': json['updated_at'],
-          'drills': json['drills'] ?? [],
-          'drill_ids': json['drill_ids'] ?? [],
-        })).toList();
-      } else {
-        print('[API] ❌ Error response: ${response.statusCode} - ${response.body}');
-        throw Exception('Failed to load drill groups: ${response.statusCode}');
-      }
+      final List<dynamic> jsonResponse = response as List<dynamic>;
+      return jsonResponse
+          .map(
+            (json) => DrillGroup.fromJson({
+              'id': json['id'],
+              'name': json['name'],
+              'description': json['description'],
+              'userId': json['user_id'],
+              'isPublic': json['is_public'],
+              'difficulty': json['difficulty'],
+              'tags': json['tags'],
+              'createdAt': json['created_at'],
+              'updatedAt': json['updated_at'],
+              'drills': json['drills'] ?? [],
+              'drill_ids': json['drill_ids'] ?? [],
+            }),
+          )
+          .toList();
     } catch (e) {
       print('[API] ❌ Error fetching drill groups: $e');
       rethrow;
@@ -54,10 +51,8 @@ class DrillGroupService {
     int difficulty = 1,
   }) async {
     try {
-      final url = Uri.parse('$baseUrl${ApiConfig.drillGroups}');
-      print('[API] 🌐 Creating drill group: $url');
+      print('[API] 🌐 Creating drill group');
 
-      // Create the request body according to API specs
       final requestBody = {
         'name': name,
         'description': description ?? '',
@@ -69,50 +64,24 @@ class DrillGroupService {
 
       print('[API] 📤 Request body: ${jsonEncode(requestBody)}');
 
-      final response = await http.post(
-        url,
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(requestBody),
+      final response = await _apiClient.post(
+        ApiConfig.drillGroups,
+        requestBody,
       );
 
-      print('[API] 📥 Response status: ${response.statusCode}');
-      print('[API] 📦 Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        return DrillGroup.fromJson({
-          'id': json['id'],
-          'name': json['name'],
-          'description': json['description'],
-          'userId': json['user_id'],
-          'isPublic': json['is_public'],
-          'difficulty': json['difficulty'],
-          'tags': json['tags'],
-          'createdAt': json['created_at'],
-          'updatedAt': json['updated_at'],
-          'drill_ids': json['drill_ids'] ?? [],
-          'drills': [], // New group starts with no drills
-        });
-      } else {
-        print('[API] ❌ Error response: ${response.statusCode} - ${response.body}');
-
-        if (response.statusCode == 422) {
-          try {
-            final errorBody = jsonDecode(response.body);
-            final validationErrors = (errorBody['detail'] as List)
-                .map((e) => '${e['msg']} (${e['loc'].join('.')})')
-                .join(', ');
-            throw Exception('Validation error: $validationErrors');
-          } catch (e) {
-            throw Exception('Invalid request data: ${response.body}');
-          }
-        }
-
-        throw Exception('Failed to create drill group: ${response.statusCode}');
-      }
+      return DrillGroup.fromJson({
+        'id': response['id'],
+        'name': response['name'],
+        'description': response['description'],
+        'userId': response['user_id'],
+        'isPublic': response['is_public'],
+        'difficulty': response['difficulty'],
+        'tags': response['tags'],
+        'createdAt': response['created_at'],
+        'updatedAt': response['updated_at'],
+        'drill_ids': response['drill_ids'] ?? [],
+        'drills': [], // New group starts with no drills
+      });
     } catch (e) {
       print('[API] ❌ Error creating drill group: $e');
       rethrow;
