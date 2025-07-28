@@ -9,11 +9,8 @@ class PracticeSessionScreen extends StatefulWidget {
   final DrillGroup? drillGroup;
   final Drill? drill;
 
-  const PracticeSessionScreen({
-    super.key,
-    this.drillGroup,
-    this.drill,
-  }) : assert(drillGroup != null || drill != null);
+  const PracticeSessionScreen({super.key, this.drillGroup, this.drill})
+    : assert(drillGroup != null || drill != null);
 
   @override
   State<PracticeSessionScreen> createState() => _PracticeSessionScreenState();
@@ -30,16 +27,19 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
   void initState() {
     super.initState();
     if (widget.drillGroup != null) {
-      // Initialize all drills as unselected with their default durations
+      // Initialize all drills as unselected with their default durations (clamped between 5 and 60)
       for (final drill in widget.drillGroup!.drills) {
         _selectedDrills[drill.id] = false;
-        _drillDurations[drill.id] = drill.durationMinutes;
+        _drillDurations[drill.id] = drill.durationMinutes.clamp(5, 60);
       }
       _sessionName = '${widget.drillGroup!.name} Practice';
     } else if (widget.drill != null) {
       // Initialize single drill as selected
       _selectedDrills[widget.drill!.id] = true;
-      _drillDurations[widget.drill!.id] = widget.drill!.durationMinutes;
+      _drillDurations[widget.drill!.id] = widget.drill!.durationMinutes.clamp(
+        5,
+        60,
+      );
       _sessionName = '${widget.drill!.name} Practice';
     }
   }
@@ -88,7 +88,8 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
 
     try {
       // Get selected drill IDs
-      final selectedDrillIds = widget.drillGroup?.drills
+      final selectedDrillIds =
+          widget.drillGroup?.drills
               .where((d) => _selectedDrills[d.id] ?? false)
               .map((d) => d.id)
               .toList() ??
@@ -115,7 +116,9 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create practice sessions: ${e.toString()}'),
+            content: Text(
+              'Failed to create practice sessions: ${e.toString()}',
+            ),
             behavior: SnackBarBehavior.floating,
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
@@ -136,7 +139,9 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.drillGroup != null ? 'New Practice Session' : 'Start Drill'),
+        title: Text(
+          widget.drillGroup != null ? 'New Practice Session' : 'Start Drill',
+        ),
         elevation: 0,
       ),
       body: _isSubmitting
@@ -226,114 +231,113 @@ class _PracticeSessionScreenState extends State<PracticeSessionScreen> {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final drill = drills[index];
-                        final isSelected = _selectedDrills[drill.id] ?? false;
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final drill = drills[index];
+                      final isSelected = _selectedDrills[drill.id] ?? false;
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: InkWell(
-                            onTap: widget.drillGroup != null
-                                ? () => _toggleDrill(drill.id)
-                                : null,
-                            borderRadius: BorderRadius.circular(12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  if (widget.drillGroup != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 16),
-                                      child: Checkbox(
-                                        value: isSelected,
-                                        onChanged: (_) => _toggleDrill(drill.id),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: InkWell(
+                          onTap: widget.drillGroup != null
+                              ? () => _toggleDrill(drill.id)
+                              : null,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                if (widget.drillGroup != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 16),
+                                    child: Checkbox(
+                                      value: isSelected,
+                                      onChanged: (_) => _toggleDrill(drill.id),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
                                     ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          drill.name,
-                                          style: theme.textTheme.titleMedium
-                                              ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        if (drill.description.isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            drill.description,
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
-                                              color: theme
-                                                  .textTheme.bodySmall?.color,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                        const SizedBox(height: 8),
-                                        // Duration slider
-                                        if (isSelected) ...[
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.timer_outlined,
-                                                size: 16,
-                                                color: theme.colorScheme.primary,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Slider(
-                                                  value: _drillDurations[
-                                                          drill.id]!
-                                                      .toDouble(),
-                                                  min: 5,
-                                                  max: 60,
-                                                  divisions: 11,
-                                                  label:
-                                                      '${_drillDurations[drill.id]} min',
-                                                  onChanged: (value) =>
-                                                      _updateDuration(
-                                                    drill.id,
-                                                    value.round(),
-                                                  ),
-                                                ),
-                                              ),
-                                              SizedBox(
-                                                width: 50,
-                                                child: Text(
-                                                  '${_drillDurations[drill.id]} min',
-                                                  style: theme
-                                                      .textTheme.bodySmall
-                                                      ?.copyWith(
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ],
-                                    ),
                                   ),
-                                ],
-                              ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        drill.name,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                      if (drill.description.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          drill.description,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                color: theme
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.color,
+                                              ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                      const SizedBox(height: 8),
+                                      // Duration slider
+                                      if (isSelected) ...[
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.timer_outlined,
+                                              size: 16,
+                                              color: theme.colorScheme.primary,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Slider(
+                                                value:
+                                                    _drillDurations[drill.id]!
+                                                        .toDouble(),
+                                                min: 5,
+                                                max: 60,
+                                                divisions: 11,
+                                                label:
+                                                    '${_drillDurations[drill.id]} min',
+                                                onChanged: (value) =>
+                                                    _updateDuration(
+                                                      drill.id,
+                                                      value.round(),
+                                                    ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: 50,
+                                              child: Text(
+                                                '${_drillDurations[drill.id]} min',
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        );
-                      },
-                      childCount: drills.length,
-                    ),
+                        ),
+                      );
+                    }, childCount: drills.length),
                   ),
                 ),
               ],
