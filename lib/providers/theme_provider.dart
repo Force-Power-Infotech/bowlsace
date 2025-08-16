@@ -1,27 +1,19 @@
 import 'package:flutter/material.dart';
-import '../di/service_locator.dart';
-import '../utils/local_storage.dart';
 
 class ThemeProvider extends ChangeNotifier {
-  bool _isDarkMode = false;
-  final LocalStorage _localStorage = getIt<LocalStorage>();
+  ThemeMode _themeMode = ThemeMode.system;
 
-  bool get isDarkMode => _isDarkMode;
+  ThemeMode get themeMode => _themeMode;
 
-  ThemeProvider() {
-    _loadThemePreference();
-  }
-
-  Future<void> _loadThemePreference() async {
-    _isDarkMode = await _localStorage.getItem('darkMode') ?? false;
+  void setThemeMode(ThemeMode mode) {
+    _themeMode = mode;
     notifyListeners();
   }
 
-  Future<void> toggleTheme() async {
-    _isDarkMode = !_isDarkMode;
-    await _localStorage.setItem('darkMode', _isDarkMode);
+  void toggleTheme() {
+    _themeMode = _themeMode == ThemeMode.light
+        ? ThemeMode.dark
+        : ThemeMode.light;
     notifyListeners();
   }
-
-  ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 }
