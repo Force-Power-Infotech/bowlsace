@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../models/drill_group_detail.dart';
 import '../../services/drill_service.dart';
-import 'package:intl/intl.dart';
+import '../widgets/drill_group/placeholder_image.dart';
+import '../widgets/drill_group/drill_card.dart';
+import '../widgets/drill_group/drill_info_chip.dart';
 
 class DrillGroupDetailScreen extends StatefulWidget {
   final String id;
@@ -20,42 +23,6 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
   void initState() {
     super.initState();
     _detailFuture = _drillService.getDrillGroupDetail(widget.id);
-  }
-
-  Widget _buildPlaceholderImage(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withOpacity(0.8),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.sports_cricket,
-              size: 50,
-              color: Colors.white.withOpacity(0.8),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'No Image Available',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -136,11 +103,11 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
                           detail.image!,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
-                            return _buildPlaceholderImage(context);
+                            return const PlaceholderImage();
                           },
                         )
                       else
-                        _buildPlaceholderImage(context),
+                        const PlaceholderImage(),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -243,9 +210,7 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
                               const SizedBox(height: 16),
                               Text(
                                 'Description',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
+                                style: Theme.of(context).textTheme.titleLarge
                                     ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
@@ -337,16 +302,14 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
                         children: [
                           Text(
                             'Drills',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
+                            style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           Text(
                             '${detail.drills.length} ${detail.drills.length == 1 ? 'drill' : 'drills'}',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color:
-                                      Theme.of(context).colorScheme.primary,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                           ),
                         ],
@@ -358,13 +321,10 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
               ),
               if (detail.drills.isNotEmpty)
                 SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final drill = detail.drills[index];
-                      return DrillCard(drill: drill);
-                    },
-                    childCount: detail.drills.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final drill = detail.drills[index];
+                    return DrillCard(drill: drill);
+                  }, childCount: detail.drills.length),
                 )
               else
                 SliverToBoxAdapter(
@@ -383,22 +343,16 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
                           const SizedBox(height: 16),
                           Text(
                             'No Drills Available',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
+                            style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'This drill group has no drills yet.',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
                                   color: Theme.of(
                                     context,
@@ -488,9 +442,7 @@ class _DrillCardState extends State<DrillCard> {
                       Expanded(
                         child: Text(
                           widget.drill.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
+                          style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -532,11 +484,10 @@ class _DrillCardState extends State<DrillCard> {
                   Text(
                     widget.drill.description,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withOpacity(0.7),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.7),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -547,9 +498,7 @@ class _DrillCardState extends State<DrillCard> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primaryContainer,
+                          color: Theme.of(context).colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -557,18 +506,18 @@ class _DrillCardState extends State<DrillCard> {
                           children: [
                             Icon(
                               Icons.timer,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimaryContainer,
                               size: 16,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               '${widget.drill.durationMinutes} min',
                               style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -582,9 +531,9 @@ class _DrillCardState extends State<DrillCard> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .secondaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.secondaryContainer,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -592,18 +541,18 @@ class _DrillCardState extends State<DrillCard> {
                           children: [
                             Icon(
                               Icons.star,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSecondaryContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSecondaryContainer,
                               size: 16,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               'Difficulty: ${widget.drill.difficulty}',
                               style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSecondaryContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSecondaryContainer,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -618,17 +567,17 @@ class _DrillCardState extends State<DrillCard> {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .tertiaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.tertiaryContainer,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             widget.drill.drillType,
                             style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onTertiaryContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onTertiaryContainer,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -642,9 +591,7 @@ class _DrillCardState extends State<DrillCard> {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceVariant,
+                            color: Theme.of(context).colorScheme.surfaceVariant,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
@@ -652,18 +599,18 @@ class _DrillCardState extends State<DrillCard> {
                             children: [
                               Icon(
                                 Icons.sports_cricket,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 size: 16,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 '${widget.drill.numberOfShots} shots',
                                 style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -689,12 +636,8 @@ class _DrillCardState extends State<DrillCard> {
                       children: [
                         Text(
                           'Sub-drills',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(width: 8),
                         Container(
@@ -703,17 +646,17 @@ class _DrillCardState extends State<DrillCard> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             '${widget.drill.subDrills.length}',
                             style: TextStyle(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimaryContainer,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -729,10 +672,9 @@ class _DrillCardState extends State<DrillCard> {
                         final subDrill = widget.drill.subDrills[index];
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primaryContainer
-                              .withOpacity(0.1),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer.withOpacity(0.1),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -763,9 +705,9 @@ class _DrillCardState extends State<DrillCard> {
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .primaryContainer,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primaryContainer,
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                             ),
@@ -801,9 +743,9 @@ class _DrillCardState extends State<DrillCard> {
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .secondaryContainer,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.secondaryContainer,
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                             ),
@@ -838,9 +780,7 @@ class _DrillCardState extends State<DrillCard> {
                                 const SizedBox(height: 8),
                                 Text(
                                   subDrill.instruction,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
                                         color: Theme.of(context)
                                             .colorScheme
