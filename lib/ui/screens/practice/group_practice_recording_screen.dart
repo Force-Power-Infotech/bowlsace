@@ -18,26 +18,22 @@ class GroupPracticeRecordingScreen extends StatefulWidget {
 
 class _GroupPracticeRecordingScreenState
     extends State<GroupPracticeRecordingScreen> {
-  late Timer _timer;
-  int _duration = 0;
   int _currentDrillIndex = 0;
   Map<String, int> _shotsPerDrill = {};
   Map<String, double> _accuracyPerDrill = {};
   Map<String, String> _notesPerDrill = {};
-  bool _isPaused = true;
   late PageController _pageController;
+
+  // Time control variables
+  TextEditingController _timeController = TextEditingController(text: '10:00');
+  int _remainingSeconds = 600; // Default 10 minutes
+  Timer? _timer;
+  bool _isPaused = true;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!_isPaused) {
-        setState(() {
-          _duration++;
-        });
-      }
-    });
 
     // Initialize maps for each drill
     for (var drill in widget.drillGroup.drills) {
@@ -49,9 +45,26 @@ class _GroupPracticeRecordingScreenState
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
+    _timeController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _startTimer() {
+    _timer?.cancel(); // Cancel any existing timer
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_remainingSeconds > 0 && !_isPaused) {
+          _remainingSeconds--;
+        } else if (_remainingSeconds == 0) {
+          _timer?.cancel();
+          _isPaused = true;
+          // Show completion dialog
+          _showSessionCompleteDialog();
+        }
+      });
+    });
   }
 
   String _formatDuration(int seconds) {
@@ -63,7 +76,83 @@ class _GroupPracticeRecordingScreenState
   void _togglePause() {
     setState(() {
       _isPaused = !_isPaused;
+      if (!_isPaused) {
+        _startTimer();
+      }
     });
+  }
+
+  void _showTimeInputDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set Practice Duration'),
+        content: TextField(
+          controller: _timeController,
+          decoration: const InputDecoration(
+            labelText: 'Duration (MM:SS)',
+            hintText: '10:00',
+          ),
+          keyboardType: TextInputType.datetime,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final parts = _timeController.text.split(':');
+              if (parts.length == 2) {
+                try {
+                  final minutes = int.parse(parts[0]);
+                  final seconds = int.parse(parts[1]);
+                  if (minutes >= 0 && seconds >= 0 && seconds < 60) {
+                    setState(() {
+                      _remainingSeconds = (minutes * 60) + seconds;
+                    });
+                    Navigator.pop(context);
+                    return;
+                  }
+                } catch (e) {
+                  // Invalid format
+                }
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please enter valid time (MM:SS)'),
+                ),
+              );
+            },
+            child: const Text('Set'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSessionCompleteDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Practice Session Complete'),
+        content: const Text('Great job! Would you like to save this session?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Continue Practice'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _savePracticeSession();
+            },
+            child: const Text('Save Session'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _incrementShots(String drillId) {
@@ -98,7 +187,7 @@ class _GroupPracticeRecordingScreenState
           drillGroupId: widget.drillGroup.id,
           drillId: drill.id,
           userId: user.id.toString(),
-          duration: _duration,
+          duration: 600 - _remainingSeconds,
           shots: _shotsPerDrill[drill.id] ?? 0,
           notes: _notesPerDrill[drill.id] ?? '',
           accuracy: _accuracyPerDrill[drill.id] ?? 0.0,
@@ -318,7 +407,11 @@ class _GroupPracticeRecordingScreenState
         title: Text(widget.drillGroup.name),
         actions: [
           IconButton(
-            icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
+            icon: const Icon(Icons.timer),
+            onPressed: _showTimeInputDialog,
+          ),
+          IconButton(
+            icon: Icon(_isPaused ? Icons.play_circle : Icons.pause_circle),
             onPressed: _togglePause,
           ),
         ],
@@ -345,23 +438,12 @@ class _GroupPracticeRecordingScreenState
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // AppBar(
-                  //   backgroundColor: Colors.transparent,
-                  //   elevation: 0,
-                  //   title: Text(widget.drillGroup.name),
-                  //   actions: [
-                  //     IconButton(
-                  //       icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
-                  //       onPressed: _togglePause,
-                  //     ),
-                  //   ],
-                  // ),
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
                         Text(
-                          _formatDuration(_duration),
+                          _formatDuration(_remainingSeconds),
                           style: Theme.of(context).textTheme.displayMedium
                               ?.copyWith(
                                 fontWeight: FontWeight.bold,
