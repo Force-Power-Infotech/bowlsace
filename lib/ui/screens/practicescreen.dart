@@ -3,6 +3,7 @@ import '../../models/meta_drill_group.dart';
 import '../../models/drill_group.dart';
 import '../../services/drill_service.dart';
 import 'meta_drill_group_detail_screen.dart';
+import 'drill_group_detail_screen.dart';
 
 class PracticeScreen extends StatefulWidget {
   const PracticeScreen({Key? key}) : super(key: key);
@@ -197,7 +198,13 @@ class _PracticeScreenState extends State<PracticeScreen> {
                               return _DrillGroupCard(
                                 drillGroup: group,
                                 onTap: () {
-                                  // Handle drill group tap
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          DrillGroupDetailScreen(id: group.id),
+                                    ),
+                                  );
                                 },
                               );
                             },

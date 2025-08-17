@@ -6,6 +6,7 @@ import 'dart:developer' as developer;
 import '../models/meta_drill_group.dart';
 import '../models/drill_group.dart' as dg;
 import '../models/meta_drill_group_detail.dart';
+import '../models/drill_group_detail.dart';
 
 class DrillService {
   static const String baseUrl = 'https://ledboard.forcempower.com:8443/api/v1';
@@ -141,6 +142,38 @@ class DrillService {
           response: response,
           message:
               'Failed to load meta drill group detail. Status: ${response.statusCode}, Body: ${response.data}',
+        );
+      }
+    } catch (e, stackTrace) {
+      _logApiError(endpoint, e, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<DrillGroupDetail> getDrillGroupDetail(String id) async {
+    final endpoint = '/drill-groups/$id';
+    try {
+      developer.log(
+        'Fetching drill group detail from: $baseUrl$endpoint',
+        name: 'DrillService',
+      );
+
+      final response = await _dio.get(endpoint);
+      _logApiCall(endpoint, response);
+
+      if (response.statusCode == 200) {
+        final detail = DrillGroupDetail.fromJson(response.data);
+        developer.log(
+          'Successfully fetched drill group detail for id: $id',
+          name: 'DrillService',
+        );
+        return detail;
+      } else {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          message:
+              'Failed to load drill group detail. Status: ${response.statusCode}, Body: ${response.data}',
         );
       }
     } catch (e, stackTrace) {

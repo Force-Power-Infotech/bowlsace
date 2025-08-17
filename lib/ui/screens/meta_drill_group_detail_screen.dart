@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/meta_drill_group_detail.dart' as models;
 import '../../services/drill_service.dart';
 import 'package:intl/intl.dart';
+import 'drill_group_detail_screen.dart';
 
 class MetaDrillGroupDetailScreen extends StatefulWidget {
   final String id;
@@ -359,11 +360,10 @@ class DrillGroupCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
-          // Handle drill group tap
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Selected: ${drillGroup.name}'),
-              behavior: SnackBarBehavior.floating,
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DrillGroupDetailScreen(id: drillGroup.id),
             ),
           );
         },
