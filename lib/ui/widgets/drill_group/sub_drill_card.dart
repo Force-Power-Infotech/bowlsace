@@ -1,75 +1,195 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../models/drill_group_detail.dart';
 import '../../../models/sub_drill.dart';
 import 'drill_info_chip.dart';
 
-class SubDrillCard extends StatelessWidget {
+class SubDrillCard extends StatefulWidget {
   final SubDrill subDrill;
 
   const SubDrillCard({Key? key, required this.subDrill}) : super(key: key);
 
   @override
+  State<SubDrillCard> createState() => _SubDrillCardState();
+}
+
+class _SubDrillCardState extends State<SubDrillCard> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.1),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final cs = Theme.of(context).colorScheme;
+    final onSurfaceSubtle = Theme.of(
+      context,
+    ).colorScheme.onSurface.withOpacity(0.75);
+
+    final hasShots = widget.subDrill.numberOfShots != null;
+    final hasDuration = widget.subDrill.duration != null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          scale: _pressed ? 0.98 : 1.0,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
               children: [
-                Expanded(
-                  child: Text(
-                    subDrill.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                // Subtle gradient background
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        cs.primaryContainer.withOpacity(0.14),
+                        cs.secondaryContainer.withOpacity(0.10),
+                      ],
                     ),
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (subDrill.numberOfShots != null)
-                      DrillInfoChip(
-                        icon: Icons.sports_cricket,
-                        label: '${subDrill.numberOfShots} shots',
-                        containerColor: Theme.of(
-                          context,
-                        ).colorScheme.primaryContainer,
-                        textColor: Theme.of(
-                          context,
-                        ).colorScheme.onPrimaryContainer,
+                // Glass blur & border
+                BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: cs.outlineVariant.withOpacity(0.25),
                       ),
-                    if (subDrill.duration != null) ...[
-                      if (subDrill.numberOfShots != null)
-                        const SizedBox(width: 8),
-                      DrillInfoChip(
-                        icon: Icons.timer_outlined,
-                        label: '${subDrill.duration} min',
-                        containerColor: Theme.of(
-                          context,
-                        ).colorScheme.secondaryContainer,
-                        textColor: Theme.of(
-                          context,
-                        ).colorScheme.onSecondaryContainer,
-                      ),
-                    ],
-                  ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 16,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: _CardContent(
+                      subDrill: widget.subDrill,
+                      onSurfaceSubtle: onSurfaceSubtle,
+                      cs: cs,
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              subDrill.instruction,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CardContent extends StatelessWidget {
+  final SubDrill subDrill;
+  final Color onSurfaceSubtle;
+  final ColorScheme cs;
+
+  const _CardContent({
+    required this.subDrill,
+    required this.onSurfaceSubtle,
+    required this.cs,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: icon + title + chips
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Compact sport icon badge
+              Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: cs.primary.withOpacity(0.22)),
+                ),
+                child: Icon(Icons.sports_cricket, color: cs.primary, size: 22),
+              ),
+              const SizedBox(width: 12),
+              // Title + chips (wrap for responsiveness)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Text(
+                      subDrill.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // Chips
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (subDrill.numberOfShots != null)
+                          DrillInfoChip(
+                            icon: Icons.sports_baseball_outlined,
+                            label: '${subDrill.numberOfShots} shots',
+                            containerColor: cs.primaryContainer,
+                            textColor: cs.onPrimaryContainer,
+                          ),
+                        if (subDrill.duration != null)
+                          DrillInfoChip(
+                            icon: Icons.timer_outlined,
+                            label: '${subDrill.duration} min',
+                            containerColor: cs.secondaryContainer,
+                            textColor: cs.onSecondaryContainer,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // Divider (soft, inset)
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(vertical: 2),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  cs.outlineVariant.withOpacity(0.25),
+                  Colors.transparent,
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Instruction
+          Text(
+            subDrill.instruction,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              height: 1.35,
+              color: onSurfaceSubtle,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -5,6 +5,8 @@ import '../../services/drill_service.dart';
 import '../widgets/drill_group/placeholder_image.dart';
 import '../widgets/drill_group/drill_card.dart';
 import '../widgets/drill_group/drill_info_chip.dart';
+import 'practice/group_practice_recording_screen.dart';
+import 'practice/practice_recording_screen.dart';
 
 class DrillGroupDetailScreen extends StatefulWidget {
   final String id;
@@ -315,6 +317,31 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    GroupPracticeRecordingScreen(
+                                      drillGroup: detail,
+                                    ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.sports_cricket),
+                          label: const Text('Start Group Practice'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
@@ -620,8 +647,33 @@ class _DrillCardState extends State<DrillCard> {
                       ],
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PracticeRecordingScreen(
+                                  drill: widget.drill,
+                                  drillGroupId: widget.drill.drillGroupId,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.sports_cricket),
+                          label: const Text('Start Practice'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   if (widget.drill.videoUrl != null) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: () {
                         // Handle video playback

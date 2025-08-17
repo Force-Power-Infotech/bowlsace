@@ -3,8 +3,9 @@ import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/theme_provider.dart';
+import 'providers/user_provider.dart';
 import 'utils/navigation_service.dart';
-import 'ui/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'ui/screens/splash_screen.dart';
 import 'ui/screens/main_navigation_screen.dart';
 
@@ -24,7 +25,10 @@ Future<void> main() async {
 
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => ThemeProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+      ],
       child: const BowlsAceApp(),
     ),
   );
@@ -40,8 +44,28 @@ class BowlsAceApp extends StatelessWidget {
         return MaterialApp(
           title: 'BowlsAce',
           navigatorKey: getIt<NavigationService>().navigatorKey,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF2196F3), // Material Blue
+              brightness: Brightness.light,
+            ),
+            cardTheme: const CardThemeData(
+              elevation: 8,
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF2196F3),
+              brightness: Brightness.dark,
+            ),
+            cardTheme: const CardThemeData(
+              elevation: 8,
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
           themeMode: themeProvider.themeMode,
           home: const SplashScreen(),
           debugShowCheckedModeBanner: false,

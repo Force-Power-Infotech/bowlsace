@@ -1,5 +1,16 @@
 import 'sub_drill.dart';
 
+String? _validateUrl(String? url) {
+  if (url == null || url.isEmpty) return null;
+  try {
+    final uri = Uri.parse(url);
+    if (!uri.hasScheme || !uri.hasAuthority) return null;
+    return url;
+  } catch (e) {
+    return null;
+  }
+}
+
 class Drill {
   final String name;
   final String description;
@@ -35,7 +46,7 @@ class Drill {
     return Drill(
       name: json['name'] as String? ?? 'Untitled Drill',
       description: json['description'] as String? ?? 'No description available',
-      imageUrl: json['image_url'] as String?,
+      imageUrl: _validateUrl(json['image_url'] as String?),
       videoUrl: json['video_url'] as String?,
       difficulty: json['difficulty'] as int? ?? 0,
       isActive: json['is_active'] as bool? ?? true,
@@ -87,7 +98,7 @@ class DrillGroupDetail {
     return DrillGroupDetail(
       name: json['name'] as String? ?? 'Untitled Group',
       description: json['description'] as String? ?? 'No description available',
-      image: json['image'] as String?,
+      image: _validateUrl(json['image'] as String?),
       difficulty: json['difficulty'] as int? ?? 0,
       isPublic: json['is_public'] as bool? ?? true,
       tags: ((json['tags'] as List?) ?? []).map((e) => e.toString()).toList(),
