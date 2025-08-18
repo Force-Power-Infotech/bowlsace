@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../models/drill_group_detail.dart';
 import '../../../models/practice_session.dart';
+import '../../../models/sub_drill.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/user_provider.dart';
 
@@ -208,7 +209,15 @@ class _GroupPracticeRecordingScreenState
     final drill = widget.drillGroup.drills.firstWhere((d) => d.id == drillId);
     if (drill.subDrills.isEmpty) {
       setState(() {
-        _shotsPerDrill[drillId] = (_shotsPerDrill[drillId] ?? 0) + 1;
+        final newShots = (_shotsPerDrill[drillId] ?? 0) + 1;
+        _shotsPerDrill[drillId] = newShots;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${drill.name}: Shots increased to $newShots'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       });
     }
   }
@@ -218,34 +227,112 @@ class _GroupPracticeRecordingScreenState
     final drill = widget.drillGroup.drills.firstWhere((d) => d.id == drillId);
     if (drill.subDrills.isEmpty && (_shotsPerDrill[drillId] ?? 0) > 0) {
       setState(() {
-        _shotsPerDrill[drillId] = (_shotsPerDrill[drillId] ?? 0) - 1;
+        final newShots = (_shotsPerDrill[drillId] ?? 0) - 1;
+        _shotsPerDrill[drillId] = newShots;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${drill.name}: Shots decreased to $newShots'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       });
     }
   }
 
   void _updateSubDrillShots(String subDrillId, int shots) {
+    // Find the sub-drill and its parent drill
+    String drillName = '';
+    String subDrillTitle = '';
+    for (var drill in widget.drillGroup.drills) {
+      final subDrill = drill.subDrills.firstWhere(
+        (sd) => sd.id == subDrillId,
+        orElse: () => SubDrill(
+          title: '',
+          instruction: '',
+          drillId: '',
+          id: '',
+          createdAt: DateTime.now(),
+        ),
+      );
+      if (subDrill.id == subDrillId) {
+        drillName = drill.name;
+        subDrillTitle = subDrill.title;
+        break;
+      }
+    }
+
     setState(() {
-      _subDrillShots[subDrillId] = shots.clamp(
-        0,
-        100,
-      ); // Limit to reasonable range
+      final newShots = shots.clamp(0, 100);
+      _subDrillShots[subDrillId] = newShots;
+      if (drillName.isNotEmpty && subDrillTitle.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$drillName - $subDrillTitle: Shots updated to $newShots',
+            ),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     });
   }
 
   void _updateDrillDuration(String drillId, int duration) {
+    final drill = widget.drillGroup.drills.firstWhere((d) => d.id == drillId);
     setState(() {
       if (duration >= 0) {
         _drillDurations[drillId] = duration;
         _updateTotalTime();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${drill.name}: Duration updated to $duration min'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     });
   }
 
   void _updateSubDrillDuration(String subDrillId, int duration) {
+    // Find the sub-drill and its parent drill
+    String drillName = '';
+    String subDrillTitle = '';
+    for (var drill in widget.drillGroup.drills) {
+      final subDrill = drill.subDrills.firstWhere(
+        (sd) => sd.id == subDrillId,
+        orElse: () => SubDrill(
+          title: '',
+          instruction: '',
+          drillId: '',
+          id: '',
+          createdAt: DateTime.now(),
+        ),
+      );
+      if (subDrill.id == subDrillId) {
+        drillName = drill.name;
+        subDrillTitle = subDrill.title;
+        break;
+      }
+    }
+
     setState(() {
       if (duration >= 0) {
         _subDrillDurations[subDrillId] = duration;
         _updateTotalTime();
+        if (drillName.isNotEmpty && subDrillTitle.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '$drillName - $subDrillTitle: Duration updated to $duration min',
+              ),
+              duration: const Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     });
   }
@@ -440,7 +527,9 @@ class _GroupPracticeRecordingScreenState
                                   icon: const Icon(Icons.remove_circle_outline),
                                   onPressed: () => _updateDrillDuration(
                                     drill.id,
-                                    drill.durationMinutes - 1,
+                                    (_drillDurations[drill.id] ??
+                                            drill.durationMinutes) -
+                                        1,
                                   ),
                                 ),
                                 Text(
@@ -459,7 +548,9 @@ class _GroupPracticeRecordingScreenState
                                   icon: const Icon(Icons.add_circle_outline),
                                   onPressed: () => _updateDrillDuration(
                                     drill.id,
-                                    drill.durationMinutes + 1,
+                                    (_drillDurations[drill.id] ??
+                                            drill.durationMinutes) +
+                                        1,
                                   ),
                                 ),
                               ],
