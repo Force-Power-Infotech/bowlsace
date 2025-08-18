@@ -24,9 +24,14 @@ class _GroupPracticeRecordingScreenState
   Map<String, String> _notesPerDrill = {};
   late PageController _pageController;
 
+  // Sub-drill tracking maps
+  Map<String, int> _subDrillShots = {};
+  Map<String, int> _subDrillDurations = {};
+  Map<String, int> _drillDurations = {}; // For storing drill durations
+
   // Time control variables
-  TextEditingController _timeController = TextEditingController(text: '10:00');
-  int _remainingSeconds = 600; // Default 10 minutes
+  late TextEditingController _timeController;
+  late int _remainingSeconds;
   Timer? _timer;
   bool _isPaused = true;
 
@@ -36,11 +41,32 @@ class _GroupPracticeRecordingScreenState
     _pageController = PageController();
 
     // Initialize maps for each drill
+    int totalDuration = 0;
     for (var drill in widget.drillGroup.drills) {
       _shotsPerDrill[drill.id] = 0;
       _accuracyPerDrill[drill.id] = 0.0;
       _notesPerDrill[drill.id] = '';
+      _drillDurations[drill.id] = drill.durationMinutes;
+
+      // Initialize sub-drill maps
+      for (var subDrill in drill.subDrills) {
+        _subDrillShots[subDrill.id] = subDrill.numberOfShots ?? 0;
+        _subDrillDurations[subDrill.id] =
+            subDrill.duration ?? drill.durationMinutes;
+      }
+
+      // Add to total duration
+      totalDuration += drill.subDrills.isEmpty
+          ? drill.durationMinutes
+          : drill.subDrills.fold(
+              0,
+              (sum, subDrill) => sum + (_subDrillDurations[subDrill.id] ?? 0),
+            );
     }
+
+    // Initialize timer with total duration
+    _remainingSeconds = totalDuration * 60;
+    _timeController = TextEditingController(text: '${totalDuration}:00');
   }
 
   @override
@@ -155,18 +181,87 @@ class _GroupPracticeRecordingScreenState
     );
   }
 
+  // Calculate total shots for a drill from its sub-drills
+  int _calculateDrillShots(Drill drill) {
+    if (drill.subDrills.isEmpty) {
+      return _shotsPerDrill[drill.id] ?? 0;
+    }
+    return drill.subDrills.fold(
+      0,
+      (sum, subDrill) => sum + (_subDrillShots[subDrill.id] ?? 0),
+    );
+  }
+
+  // Calculate total duration for a drill from its sub-drills
+  int _calculateDrillDuration(Drill drill) {
+    if (drill.subDrills.isEmpty) {
+      return _drillDurations[drill.id] ?? drill.durationMinutes;
+    }
+    return drill.subDrills.fold(
+      0,
+      (sum, subDrill) => sum + (_subDrillDurations[subDrill.id] ?? 0),
+    );
+  }
+
   void _incrementShots(String drillId) {
-    setState(() {
-      _shotsPerDrill[drillId] = (_shotsPerDrill[drillId] ?? 0) + 1;
-    });
+    // Only allow incrementing shots if drill has no sub-drills
+    final drill = widget.drillGroup.drills.firstWhere((d) => d.id == drillId);
+    if (drill.subDrills.isEmpty) {
+      setState(() {
+        _shotsPerDrill[drillId] = (_shotsPerDrill[drillId] ?? 0) + 1;
+      });
+    }
   }
 
   void _decrementShots(String drillId) {
-    if ((_shotsPerDrill[drillId] ?? 0) > 0) {
+    // Only allow decrementing shots if drill has no sub-drills
+    final drill = widget.drillGroup.drills.firstWhere((d) => d.id == drillId);
+    if (drill.subDrills.isEmpty && (_shotsPerDrill[drillId] ?? 0) > 0) {
       setState(() {
         _shotsPerDrill[drillId] = (_shotsPerDrill[drillId] ?? 0) - 1;
       });
     }
+  }
+
+  void _updateSubDrillShots(String subDrillId, int shots) {
+    setState(() {
+      _subDrillShots[subDrillId] = shots.clamp(
+        0,
+        100,
+      ); // Limit to reasonable range
+    });
+  }
+
+  void _updateDrillDuration(String drillId, int duration) {
+    setState(() {
+      if (duration >= 0) {
+        _drillDurations[drillId] = duration;
+        _updateTotalTime();
+      }
+    });
+  }
+
+  void _updateSubDrillDuration(String subDrillId, int duration) {
+    setState(() {
+      if (duration >= 0) {
+        _subDrillDurations[subDrillId] = duration;
+        _updateTotalTime();
+      }
+    });
+  }
+
+  void _updateTotalTime() {
+    int totalMinutes = 0;
+    for (var drill in widget.drillGroup.drills) {
+      totalMinutes += drill.subDrills.isEmpty
+          ? (_drillDurations[drill.id] ?? drill.durationMinutes)
+          : drill.subDrills.fold(
+              0,
+              (sum, subDrill) => sum + (_subDrillDurations[subDrill.id] ?? 0),
+            );
+    }
+    _remainingSeconds = totalMinutes * 60;
+    _timeController.text = '$totalMinutes:00';
   }
 
   Future<void> _savePracticeSession() async {
@@ -181,14 +276,30 @@ class _GroupPracticeRecordingScreenState
     // Create a session for each drill
     final List<PracticeSession> sessions = [];
     for (var drill in widget.drillGroup.drills) {
+      // Calculate total duration from sub-drills if they exist
+      int totalDuration = drill.subDrills.isNotEmpty
+          ? drill.subDrills.fold(
+              0,
+              (sum, subDrill) => sum + (_subDrillDurations[subDrill.id] ?? 0),
+            )
+          : (_drillDurations[drill.id] ?? drill.durationMinutes);
+
+      // Calculate total shots from sub-drills if they exist
+      int totalShots = drill.subDrills.isNotEmpty
+          ? drill.subDrills.fold(
+              0,
+              (sum, subDrill) => sum + (_subDrillShots[subDrill.id] ?? 0),
+            )
+          : (_shotsPerDrill[drill.id] ?? 0);
+
       sessions.add(
         PracticeSession(
           id: '${DateTime.now().millisecondsSinceEpoch}_${drill.id}',
           drillGroupId: widget.drillGroup.id,
           drillId: drill.id,
           userId: user.id.toString(),
-          duration: 600 - _remainingSeconds,
-          shots: _shotsPerDrill[drill.id] ?? 0,
+          duration: totalDuration,
+          shots: totalShots,
           notes: _notesPerDrill[drill.id] ?? '',
           accuracy: _accuracyPerDrill[drill.id] ?? 0.0,
           createdAt: DateTime.now(),
@@ -238,24 +349,66 @@ class _GroupPracticeRecordingScreenState
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      IconButton.filled(
-                        icon: const Icon(Icons.remove_circle_outline),
-                        onPressed: () => _decrementShots(drill.id),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary.withOpacity(0.1),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          children: [
+                      // Total Shots section
+                      Column(
+                        children: [
+                          Text(
+                            'Total Shots',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.8),
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (drill.subDrills.isEmpty) ...[
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton.filled(
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                  onPressed: () => _decrementShots(drill.id),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.primary.withOpacity(0.1),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Text(
+                                    '${_shotsPerDrill[drill.id] ?? 0}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                  ),
+                                ),
+                                IconButton.filled(
+                                  icon: const Icon(Icons.add_circle_outline),
+                                  onPressed: () => _incrementShots(drill.id),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.primary.withOpacity(0.1),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else
                             Text(
-                              '${_shotsPerDrill[drill.id] ?? 0}',
-                              style: Theme.of(context).textTheme.displaySmall
+                              '${_calculateDrillShots(drill)}',
+                              style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: Theme.of(
@@ -263,26 +416,66 @@ class _GroupPracticeRecordingScreenState
                                     ).colorScheme.primary,
                                   ),
                             ),
+                        ],
+                      ),
+                      // Total Duration section
+                      Column(
+                        children: [
+                          Text(
+                            'Duration (min)',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.8),
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (drill.subDrills.isEmpty) ...[
+                            // Controls for drills without sub-drills
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                  onPressed: () => _updateDrillDuration(
+                                    drill.id,
+                                    drill.durationMinutes - 1,
+                                  ),
+                                ),
+                                Text(
+                                  '${_drillDurations[drill.id] ?? drill.durationMinutes}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle_outline),
+                                  onPressed: () => _updateDrillDuration(
+                                    drill.id,
+                                    drill.durationMinutes + 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else
                             Text(
-                              'Shots',
-                              style: Theme.of(context).textTheme.titleMedium
+                              '${_calculateDrillDuration(drill)}',
+                              style: Theme.of(context).textTheme.headlineSmall
                                   ?.copyWith(
+                                    fontWeight: FontWeight.bold,
                                     color: Theme.of(
                                       context,
-                                    ).colorScheme.onSurface.withOpacity(0.8),
+                                    ).colorScheme.primary,
                                   ),
                             ),
-                          ],
-                        ),
-                      ),
-                      IconButton.filled(
-                        icon: const Icon(Icons.add_circle_outline),
-                        onPressed: () => _incrementShots(drill.id),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary.withOpacity(0.1),
-                        ),
+                        ],
                       ),
                     ],
                   ),
@@ -379,13 +572,116 @@ class _GroupPracticeRecordingScreenState
               ),
               const SizedBox(height: 8),
               ...drill.subDrills.map(
-                (subDrill) => ListTile(
-                  title: Text(subDrill.title),
-                  subtitle: Text(subDrill.instruction),
-                  leading: const Icon(Icons.sports_cricket),
-                  trailing: subDrill.numberOfShots != null
-                      ? Chip(label: Text('${subDrill.numberOfShots} shots'))
-                      : null,
+                (subDrill) => Card(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          title: Text(subDrill.title),
+                          subtitle: Text(subDrill.instruction),
+                          leading: const Icon(Icons.sports_cricket),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Shots',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelMedium,
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.remove_circle_outline,
+                                          ),
+                                          onPressed: () => _updateSubDrillShots(
+                                            subDrill.id,
+                                            (_subDrillShots[subDrill.id] ?? 0) -
+                                                1,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${_subDrillShots[subDrill.id] ?? 0}',
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.add_circle_outline,
+                                          ),
+                                          onPressed: () => _updateSubDrillShots(
+                                            subDrill.id,
+                                            (_subDrillShots[subDrill.id] ?? 0) +
+                                                1,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Duration (min)',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelMedium,
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.remove_circle_outline,
+                                          ),
+                                          onPressed: () =>
+                                              _updateSubDrillDuration(
+                                                subDrill.id,
+                                                (_subDrillDurations[subDrill
+                                                            .id] ??
+                                                        5) -
+                                                    1,
+                                              ),
+                                        ),
+                                        Text(
+                                          '${_subDrillDurations[subDrill.id] ?? 5}',
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.add_circle_outline,
+                                          ),
+                                          onPressed: () =>
+                                              _updateSubDrillDuration(
+                                                subDrill.id,
+                                                (_subDrillDurations[subDrill
+                                                            .id] ??
+                                                        5) +
+                                                    1,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
