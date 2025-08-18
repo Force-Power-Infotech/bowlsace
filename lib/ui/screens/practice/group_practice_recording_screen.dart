@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../models/drill_group_detail.dart';
 import '../../../models/practice_session.dart';
@@ -394,7 +395,52 @@ class _GroupPracticeRecordingScreenState
       );
     }
 
-    // TODO: Save sessions to backend
+    // Create a detailed response object for logging
+    final Map<String, dynamic> response = {
+      'userId': user.id.toString(),
+      'drillGroupId': widget.drillGroup.id,
+      'drillGroupName': widget.drillGroup.name,
+      'totalDuration': _remainingSeconds ~/ 60,
+      'timestamp': DateTime.now().toIso8601String(),
+      'drills': widget.drillGroup.drills.map((drill) {
+        // Get sub-drills data if they exist
+        final subDrillsData = drill.subDrills
+            .map(
+              (subDrill) => {
+                'id': subDrill.id,
+                'title': subDrill.title,
+                'shots': _subDrillShots[subDrill.id] ?? 0,
+                'duration': _subDrillDurations[subDrill.id] ?? 0,
+              },
+            )
+            .toList();
+
+        return {
+          'id': drill.id,
+          'name': drill.name,
+          'duration': drill.subDrills.isEmpty
+              ? (_drillDurations[drill.id] ?? drill.durationMinutes)
+              : subDrillsData.fold(
+                  0,
+                  (sum, sd) => sum + (sd['duration'] as int),
+                ),
+          'shots': drill.subDrills.isEmpty
+              ? (_shotsPerDrill[drill.id] ?? 0)
+              : subDrillsData.fold(0, (sum, sd) => sum + (sd['shots'] as int)),
+          'accuracy': ((_accuracyPerDrill[drill.id] ?? 0) * 100).round(),
+          'notes': _notesPerDrill[drill.id] ?? '',
+          'subDrills': subDrillsData,
+        };
+      }).toList(),
+    };
+
+    // Log the response to the terminal in pretty JSON format
+    debugPrint('\n=== Practice Session Data ===\n');
+    const JsonEncoder encoder = JsonEncoder.withIndent('  ');
+    debugPrint(encoder.convert(response));
+    debugPrint('\n===========================\n');
+
+    // Save sessions to backend and return
     Navigator.pop(context, sessions);
   }
 
