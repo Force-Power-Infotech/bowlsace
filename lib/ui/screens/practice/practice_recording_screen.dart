@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../models/drill_group_detail.dart';
 import '../../../models/practice_session.dart';
 import '../../../models/sub_drill.dart';
-import 'package:provider/provider.dart';
-import '../../../providers/user_provider.dart';
 
 class PracticeRecordingScreen extends StatefulWidget {
   final Drill drill;
@@ -77,19 +75,11 @@ class _PracticeRecordingScreenState extends State<PracticeRecordingScreen> {
 
   Future<void> _savePracticeSession() async {
     // TODO: Implement actual saving logic
-    final user = Provider.of<UserProvider>(context, listen: false).user;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to save practice session')),
-      );
-      return;
-    }
-
     final session = PracticeSession(
       id: DateTime.now().toIso8601String(), // Replace with actual ID generation
       drillGroupId: widget.drillGroupId,
       drillId: widget.drill.id,
-      userId: user.id.toString(),
+      userId: "temp", // TODO: Replace with actual user ID
       duration: _duration,
       shots: _shots,
       notes: _notesController.text,

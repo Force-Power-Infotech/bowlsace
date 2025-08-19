@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import '../../../models/drill_group_detail.dart';
 import '../../../models/practice_session.dart';
 import '../../../models/sub_drill.dart';
-import 'package:provider/provider.dart';
-import '../../../providers/user_provider.dart';
 
 class GroupPracticeRecordingScreen extends StatefulWidget {
   final DrillGroupDetail drillGroup;
@@ -353,14 +351,6 @@ class _GroupPracticeRecordingScreenState
   }
 
   Future<void> _savePracticeSession() async {
-    final user = Provider.of<UserProvider>(context, listen: false).user;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to save practice session')),
-      );
-      return;
-    }
-
     // Create a session for each drill
     final List<PracticeSession> sessions = [];
     for (var drill in widget.drillGroup.drills) {
@@ -385,7 +375,7 @@ class _GroupPracticeRecordingScreenState
           id: '${DateTime.now().millisecondsSinceEpoch}_${drill.id}',
           drillGroupId: widget.drillGroup.id,
           drillId: drill.id,
-          userId: user.id.toString(),
+          userId: '', // TODO: Add user ID when user system is implemented
           duration: totalDuration,
           shots: totalShots,
           notes: _notesPerDrill[drill.id] ?? '',
@@ -397,7 +387,7 @@ class _GroupPracticeRecordingScreenState
 
     // Create a detailed response object for logging
     final Map<String, dynamic> response = {
-      'userId': user.id.toString(),
+      'userId': '', // TODO: Add user ID when user system is implemented
       'drillGroupId': widget.drillGroup.id,
       'drillGroupName': widget.drillGroup.name,
       'totalDuration': _remainingSeconds ~/ 60,

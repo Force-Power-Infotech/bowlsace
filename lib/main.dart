@@ -1,34 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/theme_provider.dart';
-import 'providers/user_provider.dart';
 import 'utils/navigation_service.dart';
-import 'package:flutter/material.dart';
 import 'ui/screens/splash_screen.dart';
 import 'ui/screens/main_navigation_screen.dart';
+import 'ui/screens/login_screen.dart';
 
-final getIt = GetIt.instance;
-
-void setupLocator() {
-  getIt.registerLazySingleton(() => NavigationService());
-}
+import 'di/service_locator.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Setup dependency injection
-  setupLocator();
+  setupServiceLocator();
 
   // Initialize other services and configurations here
 
   runApp(
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => ThemeProvider())],
       child: const BowlsAceApp(),
     ),
   );
@@ -71,6 +62,7 @@ class BowlsAceApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           routes: {
             '/splash': (context) => const SplashScreen(),
+            '/login': (context) => const LoginScreen(),
             '/dashboard': (context) => const MainNavigationScreen(),
             '/practice': (context) =>
                 const MainNavigationScreen(selectedIndex: 1),
