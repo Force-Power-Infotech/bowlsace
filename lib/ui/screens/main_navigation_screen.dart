@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'practicescreen.dart';
+import 'profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final int selectedIndex;
@@ -17,7 +18,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = [
     const DashboardScreen(),
     const PracticeScreen(),
-    const Center(child: Text('Profile')), // Placeholder for Profile screen
+    const ProfileScreen(),
   ];
 
   final List<_NavItem> _navItems = [

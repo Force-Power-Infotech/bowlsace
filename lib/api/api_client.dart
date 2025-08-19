@@ -82,6 +82,62 @@ class ApiClient {
     };
   }
 
+  Future<Map<String, dynamic>> get(
+    String path, {
+    Map<String, String>? queryParameters,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      var url = Uri.parse('$baseUrl$path');
+      if (queryParameters != null) {
+        url = url.replace(queryParameters: queryParameters);
+      }
+
+      developer.log(
+        'API GET Request',
+        error: {'url': url.toString(), 'headers': headers},
+      );
+
+      final response = await _client.get(url, headers: headers);
+
+      developer.log(
+        'API Response',
+        error: {
+          'url': url.toString(),
+          'statusCode': response.statusCode,
+          'headers': response.headers,
+          'body': response.body,
+        },
+      );
+
+      if (response.statusCode == 401) {
+        throw UnauthorizedException('Unauthorized request');
+      }
+
+      if (response.statusCode >= 400) {
+        final error = json.decode(response.body);
+        throw ApiException(
+          statusCode: response.statusCode,
+          message: error['detail'] ?? 'API request failed',
+        );
+      }
+
+      return json.decode(response.body);
+    } catch (e, stackTrace) {
+      developer.log('API Error', error: e, stackTrace: stackTrace);
+
+      if (e is ApiException || e is UnauthorizedException) {
+        rethrow;
+      }
+
+      throw NetworkException(
+        'Network error occurred while making GET request to $path',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> post(
     String path,
     Map<String, dynamic>? body, {
