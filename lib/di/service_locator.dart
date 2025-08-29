@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import '../api/api_client.dart';
 import '../api/services/auth_api.dart';
+import '../api/services/practice_session_api.dart';
 import '../utils/navigation_service.dart';
 import '../utils/secure_storage.dart';
 import '../repositories/user_repository.dart';
@@ -15,6 +16,9 @@ void setupServiceLocator() {
   // API
   getIt.registerLazySingleton<ApiClient>(() => ApiClient());
   getIt.registerLazySingleton<AuthApi>(() => AuthApi(getIt<ApiClient>()));
+  getIt.registerLazySingleton<PracticeSessionApi>(
+    () => PracticeSessionApi(getIt<ApiClient>()),
+  );
 
   // Repositories
   getIt.registerLazySingleton<UserRepository>(
