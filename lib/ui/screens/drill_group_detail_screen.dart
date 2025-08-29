@@ -6,8 +6,7 @@ import '../../api/services/practice_session_api.dart';
 import '../../repositories/user_repository.dart';
 import '../../di/service_locator.dart';
 import '../widgets/drill_group/placeholder_image.dart';
-import '../widgets/drill_group/drill_card.dart';
-import '../widgets/drill_group/drill_info_chip.dart';
+// Removed unused imports
 import 'practice/group_practice_recording_screen.dart';
 import 'practice/practice_recording_screen.dart';
 
@@ -79,12 +78,26 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
       if (!mounted) return;
 
       // Navigate to the recording screen with the session details
+      // Build a map of original drillId -> drill entry id returned by session
+      final Map<String, String> drillEntryIdsByDrillId = {};
+      if (response['drills'] is List) {
+        for (final item in (response['drills'] as List)) {
+          if (item is Map<String, dynamic>) {
+            final originalDrillId = item['drill_id'] as String?;
+            final entryId = item['id'] as String?;
+            if (originalDrillId != null && entryId != null) {
+              drillEntryIdsByDrillId[originalDrillId] = entryId;
+            }
+          }
+        }
+      }
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => GroupPracticeRecordingScreen(
             drillGroup: detail,
             sessionId: response['id'] as String,
+            drillEntryIdsByDrillId: drillEntryIdsByDrillId,
           ),
         ),
       );

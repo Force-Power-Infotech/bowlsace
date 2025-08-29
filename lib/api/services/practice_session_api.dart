@@ -99,7 +99,7 @@ class PracticeSessionApi {
     bool useSubDrills = false,
   }) async {
     developer.log(
-      "Recording shot",
+      "⚽ Recording shot - START",
       error: {
         "sessionId": sessionId,
         "drillEntryId": drillEntryId,
@@ -107,31 +107,44 @@ class PracticeSessionApi {
         "shotNumber": shotNumber,
         "subDrillId": subDrillId,
         "useSubDrills": useSubDrills,
+        "endpoint": "/practice-sessions/$sessionId/shots",
       },
     );
 
     final body = {
-      "drill_entry_id": drillEntryId,
-      "mat_length": matLength,
-      "shot_number": shotNumber,
-      "sub_drill_id": subDrillId,
-      "use_sub_drills": useSubDrills,
+      "drillEntryId": drillEntryId,
+      "matLength": matLength,
+      "shotNumber": shotNumber,
+      if (subDrillId != null) "subDrillId": subDrillId,
+      "useSubDrills": useSubDrills,
     };
 
-    final response = await _apiClient.post(
-      "/practice-sessions/$sessionId/shots/",
-      body,
-    );
+    developer.log("⚽ Shot request payload", error: body);
 
-    developer.log(
-      "Shot recorded",
-      error: {
-        "shotId": response["id"],
-        "createdAt": response["created_at"],
-        "drillEntryId": response["drill_entry_id"],
-      },
-    );
+    try {
+      final response = await _apiClient.post(
+        "/practice-sessions/$sessionId/shots",
+        body,
+      );
 
-    return response;
+      developer.log(
+        "✅ Shot recorded successfully",
+        error: {
+          "shotId": response["id"],
+          "createdAt": response["created_at"],
+          "drillEntryId": response["drill_entry_id"],
+          "raw": response,
+        },
+      );
+
+      return response;
+    } catch (e, stackTrace) {
+      developer.log(
+        "❌ Error recording shot",
+        error: {"error": e.toString(), "payload": body, "sessionId": sessionId},
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 }

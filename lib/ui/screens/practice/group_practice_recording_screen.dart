@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import '../../../models/drill_group_detail.dart';
 import '../../../models/shot_record.dart';
 import '../../../models/sub_drill.dart';
 import '../../../repositories/user_repository.dart';
-import '../../../api/api_client.dart';
+import '../../../api/services/practice_session_api.dart';
 
 import '../../../di/service_locator.dart';
 import '../../widgets/shot_map_circles.dart';
@@ -16,11 +17,14 @@ class GroupPracticeRecordingScreen extends StatefulWidget {
   final DrillGroupDetail drillGroup;
 
   final String sessionId;
+  // Mapping of original drillId -> backend drill entry id
+  final Map<String, String> drillEntryIdsByDrillId;
 
   const GroupPracticeRecordingScreen({
     Key? key,
     required this.drillGroup,
     required this.sessionId,
+    required this.drillEntryIdsByDrillId,
   }) : super(key: key);
 
   @override
@@ -31,7 +35,7 @@ class GroupPracticeRecordingScreen extends StatefulWidget {
 class _GroupPracticeRecordingScreenState
     extends State<GroupPracticeRecordingScreen> {
   late final UserRepository _userRepository;
-  late final ApiClient _apiClient;
+  late final PracticeSessionApi _practiceSessionApi;
   int _currentDrillIndex = 0;
   Map<String, List<ShotRecord>> _shotsPerDrill = {};
   Map<String, String> _notesPerDrill = {};
@@ -54,7 +58,7 @@ class _GroupPracticeRecordingScreenState
     super.initState();
     _pageController = PageController();
     _userRepository = getIt<UserRepository>();
-    _apiClient = getIt<ApiClient>();
+    _practiceSessionApi = getIt<PracticeSessionApi>();
 
     // Initialize maps for each drill
     int totalDuration = 0;
@@ -212,17 +216,44 @@ class _GroupPracticeRecordingScreenState
     if (widget.drillGroup.drills.any(
       (d) => d.id == drillId && d.subDrills.isNotEmpty,
     )) {
+      if (kDebugMode) {
+        debugPrint('⚠️ Skipping shot recording for drill with sub-drills');
+      }
       return; // Skip recording if drill has sub-drills
     }
 
     try {
+      // Resolve backend drill entry id from original drill id
+      final drillEntryId = widget.drillEntryIdsByDrillId[drillId] ?? drillId;
+      final nextShotNumber = (_shotsPerDrill[drillId]?.length ?? 0) + 1;
+
+      if (kDebugMode) {
+        debugPrint('⏳ Recording shot...');
+        debugPrint(
+          'Details:\n'
+          '  Session ID: ${widget.sessionId}\n'
+          '  Original Drill ID: $drillId\n'
+          '  Backend Entry ID: $drillEntryId\n'
+          '  Map Length: $mapLength\n'
+          '  Shot Number: $nextShotNumber\n'
+          '  Current Shots Count: ${_shotsPerDrill[drillId]?.length ?? 0}\n'
+          '  Has Entry ID Mapping: ${widget.drillEntryIdsByDrillId.containsKey(drillId)}',
+        );
+      }
+
       // Call the API to record the shot
-      await _apiClient.post('/practice-sessions/${widget.sessionId}/shots', {
-        'drillEntryId': drillId,
-        'matLength': mapLength,
-        'shotNumber': (_shotsPerDrill[drillId]?.length ?? 0) + 1,
-        'useSubDrills': false,
-      });
+      final result = await _practiceSessionApi.recordShot(
+        sessionId: widget.sessionId,
+        drillEntryId: drillEntryId,
+        matLength: mapLength,
+        shotNumber: nextShotNumber,
+        useSubDrills: false,
+      );
+
+      if (kDebugMode) {
+        debugPrint('✅ Shot recorded successfully');
+        debugPrint('Response: $result');
+      }
 
       // Update local state
       setState(() {
@@ -302,14 +333,26 @@ class _GroupPracticeRecordingScreenState
     try {
       final newShots = shots.clamp(0, 100);
 
+      // Resolve backend drill entry id from original drill id
+      final drillEntryId = widget.drillEntryIdsByDrillId[drillId] ?? drillId;
+
+      if (kDebugMode) {
+        debugPrint(
+          '[updateSubDrillShots] sessionId=${widget.sessionId} '
+          'parentDrillId=$drillId entryId=$drillEntryId '
+          'subDrillId=$subDrillId shots=$newShots',
+        );
+      }
+
       // Call the API to record the sub-drill shot
-      await _apiClient.post('/practice-sessions/${widget.sessionId}/shots', {
-        'drillEntryId': drillId,
-        'matLength': 1, // Default mat length for sub-drills
-        'shotNumber': newShots,
-        'subDrillId': subDrillId,
-        'useSubDrills': true,
-      });
+      await _practiceSessionApi.recordShot(
+        sessionId: widget.sessionId,
+        drillEntryId: drillEntryId,
+        matLength: 1, // Default mat length for sub-drills
+        shotNumber: newShots,
+        subDrillId: subDrillId,
+        useSubDrills: true,
+      );
 
       setState(() {
         _subDrillShots[subDrillId] = newShots;
@@ -337,7 +380,6 @@ class _GroupPracticeRecordingScreenState
   }
 
   void _updateDrillDuration(String drillId, int duration) {
-    final drill = widget.drillGroup.drills.firstWhere((d) => d.id == drillId);
     setState(() {
       if (duration >= 0) {
         _drillDurations[drillId] = duration;
@@ -442,45 +484,44 @@ class _GroupPracticeRecordingScreenState
         };
       }).toList();
 
-      // Create practice session with the new API format
-      final createSessionBody = {
-        'userId': user.id,
-        'drillGroupId': widget.drillGroup.id,
-        'drillGroupName': widget.drillGroup.name,
-        'totalDuration': _remainingSeconds ~/ 60,
-        'timestamp': DateTime.now().toIso8601String(),
-        'drills': drills,
-      };
-
-      // Create the practice session
-      final idempotencyKey = DateTime.now()
-          .toIso8601String(); // Use timestamp as idempotency key
-      final sessionResponse = await _apiClient.post(
-        '/practice-sessions/',
-        createSessionBody,
-        queryParameters: {'idempotency-key': idempotencyKey},
+      // Create the practice session (no idempotency key for now)
+      final sessionResponse = await _practiceSessionApi.createPracticeSession(
+        userId: user.id.toString(),
+        drillGroupId: widget.drillGroup.id,
+        drillGroupName: widget.drillGroup.name,
+        totalDuration: _remainingSeconds ~/ 60,
+        timestamp: DateTime.now(),
+        drills: drills,
       );
 
       final String sessionId = sessionResponse['id'] as String;
       debugPrint('Practice session created with ID: $sessionId');
+
+      // Build a map of original drillId -> drill entry id returned by session
+      final Map<String, String> drillEntryIdsByDrillId = {};
+      if (sessionResponse['drills'] is List) {
+        for (final item in (sessionResponse['drills'] as List)) {
+          if (item is Map<String, dynamic>) {
+            final originalDrillId = item['drill_id'] as String?;
+            final entryId = item['id'] as String?;
+            if (originalDrillId != null && entryId != null) {
+              drillEntryIdsByDrillId[originalDrillId] = entryId;
+            }
+          }
+        }
+      }
 
       // Now record individual shots for each drill
       for (var drill in widget.drillGroup.drills) {
         final shots = _shotsPerDrill[drill.id] ?? [];
 
         for (var shot in shots) {
-          // For each shot, send to the shots API endpoint
-          final shotBody = {
-            'drillEntryId': drill.id,
-            'matLength': shot.mapLength,
-            'shotNumber': shot.shotNumber,
-            'subDrillId': null, // No sub-drill for basic shots
-            'useSubDrills': false,
-          };
-
-          await _apiClient.post(
-            '/api/v1/practice-sessions/$sessionId/shots',
-            shotBody,
+          await _practiceSessionApi.recordShot(
+            sessionId: sessionId,
+            drillEntryId: drillEntryIdsByDrillId[drill.id] ?? drill.id,
+            matLength: shot.mapLength,
+            shotNumber: shot.shotNumber,
+            useSubDrills: false,
           );
         }
 
@@ -491,17 +532,13 @@ class _GroupPracticeRecordingScreenState
 
             // For sub-drills, we just record the number of shots completed
             if (numShots > 0) {
-              final subDrillShotBody = {
-                'drillEntryId': drill.id,
-                'matLength': 1, // Default mat length for sub-drills
-                'shotNumber': 1,
-                'subDrillId': subDrill.id,
-                'useSubDrills': true,
-              };
-
-              await _apiClient.post(
-                '/api/v1/practice-sessions/$sessionId/shots',
-                subDrillShotBody,
+              await _practiceSessionApi.recordShot(
+                sessionId: sessionId,
+                drillEntryId: drillEntryIdsByDrillId[drill.id] ?? drill.id,
+                matLength: 1,
+                shotNumber: numShots,
+                subDrillId: subDrill.id,
+                useSubDrills: true,
               );
             }
           }
@@ -708,6 +745,65 @@ class _GroupPracticeRecordingScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (kDebugMode) ...[
+                    Builder(
+                      builder: (context) {
+                        final resolvedEntryId =
+                            widget.drillEntryIdsByDrillId[drill.id] ?? drill.id;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceVariant.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.vpn_key_outlined, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Entry ID: $resolvedEntryId',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.labelMedium,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Copy entry id',
+                                icon: const Icon(Icons.copy, size: 18),
+                                onPressed: () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(text: resolvedEntryId),
+                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Entry ID copied'),
+                                        duration: Duration(milliseconds: 800),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                   ShotMapCircles(
                     selectedValue: _currentMapLength[drill.id] ?? 0,
                     primaryColor: Theme.of(context).colorScheme.primary,

@@ -261,11 +261,12 @@ class ApiClient {
       final url = _buildUrl(path, queryParameters: queryParameters);
 
       developer.log(
-        'API POST Request',
+        '🌐 API POST Request',
         error: {
           'url': url.toString(),
+          'path': path,
           'headers': _maskHeaders(headers),
-          'body': body != null ? jsonEncode(body) : null,
+          'body': body != null ? json.encode(body) : null,
           'queryParameters': queryParameters,
         },
       );
