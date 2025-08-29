@@ -212,20 +212,17 @@ class _GroupPracticeRecordingScreenState
     );
   }
 
-  Future<void> _recordShot(String drillId, int mapLength) async {
-    if (widget.drillGroup.drills.any(
-      (d) => d.id == drillId && d.subDrills.isNotEmpty,
-    )) {
-      if (kDebugMode) {
-        debugPrint('⚠️ Skipping shot recording for drill with sub-drills');
-      }
-      return; // Skip recording if drill has sub-drills
-    }
-
+  Future<void> _recordShot(
+    String drillId,
+    int mapLength, {
+    String? subDrillId,
+  }) async {
     try {
       // Resolve backend drill entry id from original drill id
       final drillEntryId = widget.drillEntryIdsByDrillId[drillId] ?? drillId;
-      final nextShotNumber = (_shotsPerDrill[drillId]?.length ?? 0) + 1;
+      final nextShotNumber = subDrillId != null
+          ? (_subDrillShots[subDrillId] ?? 0) + 1
+          : (_shotsPerDrill[drillId]?.length ?? 0) + 1;
 
       if (kDebugMode) {
         debugPrint('⏳ Recording shot...');
@@ -234,9 +231,10 @@ class _GroupPracticeRecordingScreenState
           '  Session ID: ${widget.sessionId}\n'
           '  Original Drill ID: $drillId\n'
           '  Backend Entry ID: $drillEntryId\n'
+          '  Sub-drill ID: ${subDrillId ?? 'N/A'}\n'
           '  Map Length: $mapLength\n'
           '  Shot Number: $nextShotNumber\n'
-          '  Current Shots Count: ${_shotsPerDrill[drillId]?.length ?? 0}\n'
+          '  Current Shots Count: ${subDrillId != null ? _subDrillShots[subDrillId] : _shotsPerDrill[drillId]?.length ?? 0}\n'
           '  Has Entry ID Mapping: ${widget.drillEntryIdsByDrillId.containsKey(drillId)}',
         );
       }
@@ -247,7 +245,8 @@ class _GroupPracticeRecordingScreenState
         drillEntryId: drillEntryId,
         matLength: mapLength,
         shotNumber: nextShotNumber,
-        useSubDrills: false,
+        subDrillId: subDrillId,
+        useSubDrills: subDrillId != null,
       );
 
       if (kDebugMode) {
@@ -257,16 +256,21 @@ class _GroupPracticeRecordingScreenState
 
       // Update local state
       setState(() {
-        final shots = _shotsPerDrill[drillId] ?? [];
-        shots.add(
-          ShotRecord(
-            shotNumber: shots.length + 1,
-            mapLength: mapLength,
-            timestamp: DateTime.now(),
-          ),
-        );
-        _shotsPerDrill[drillId] = shots;
-        _currentMapLength[drillId] = mapLength;
+        if (subDrillId != null) {
+          _subDrillShots[subDrillId] = nextShotNumber;
+          _currentMapLength[subDrillId] = mapLength;
+        } else {
+          final shots = _shotsPerDrill[drillId] ?? [];
+          shots.add(
+            ShotRecord(
+              shotNumber: shots.length + 1,
+              mapLength: mapLength,
+              timestamp: DateTime.now(),
+            ),
+          );
+          _shotsPerDrill[drillId] = shots;
+          _currentMapLength[drillId] = mapLength;
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -294,7 +298,11 @@ class _GroupPracticeRecordingScreenState
     }
   }
 
-  Future<void> _updateSubDrillShots(String subDrillId, int shots) async {
+  void _updateSubDrillShots(
+    String subDrillId,
+    int shots, {
+    int? mapLength,
+  }) async {
     // Find the sub-drill and its parent drill
     String drillId = '';
     String drillName = '';
@@ -348,7 +356,7 @@ class _GroupPracticeRecordingScreenState
       await _practiceSessionApi.recordShot(
         sessionId: widget.sessionId,
         drillEntryId: drillEntryId,
-        matLength: 1, // Default mat length for sub-drills
+        matLength: mapLength ?? 1, // Use provided map length or default
         shotNumber: newShots,
         subDrillId: subDrillId,
         useSubDrills: true,
@@ -441,6 +449,83 @@ class _GroupPracticeRecordingScreenState
     }
     _remainingSeconds = totalMinutes * 60;
     _timeController.text = '$totalMinutes:00';
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String title,
+    required int value,
+    String? unit,
+    required VoidCallback onDecrease,
+    required VoidCallback onIncrease,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, size: 16),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton.filled(
+                icon: const Icon(Icons.remove, size: 16),
+                onPressed: onDecrease,
+                style: IconButton.styleFrom(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
+                  foregroundColor: Theme.of(
+                    context,
+                  ).colorScheme.onPrimaryContainer,
+                  padding: const EdgeInsets.all(8),
+                  minimumSize: const Size(32, 32),
+                ),
+              ),
+              Text(
+                unit != null ? '$value $unit' : '$value',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              IconButton.filled(
+                icon: const Icon(Icons.add, size: 16),
+                onPressed: onIncrease,
+                style: IconButton.styleFrom(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
+                  foregroundColor: Theme.of(
+                    context,
+                  ).colorScheme.onPrimaryContainer,
+                  padding: const EdgeInsets.all(8),
+                  minimumSize: const Size(32, 32),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _savePracticeSession() async {
@@ -950,126 +1035,222 @@ class _GroupPracticeRecordingScreenState
               const SizedBox(height: 16),
               const Divider(),
               const SizedBox(height: 8),
-              Text(
-                'Sub Drills',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              ...drill.subDrills.map(
-                (subDrill) => Card(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ListTile(
-                          title: Text(subDrill.title),
-                          subtitle: Text(subDrill.instruction),
-                          leading: const Icon(Icons.sports_cricket),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Shots',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.labelMedium,
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.remove_circle_outline,
-                                          ),
-                                          onPressed: () => _updateSubDrillShots(
-                                            subDrill.id,
-                                            (_subDrillShots[subDrill.id] ?? 0) -
-                                                1,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${_subDrillShots[subDrill.id] ?? 0}',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.add_circle_outline,
-                                          ),
-                                          onPressed: () => _updateSubDrillShots(
-                                            subDrill.id,
-                                            (_subDrillShots[subDrill.id] ?? 0) +
-                                                1,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Duration (min)',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.labelMedium,
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.remove_circle_outline,
-                                          ),
-                                          onPressed: () =>
-                                              _updateSubDrillDuration(
-                                                subDrill.id,
-                                                (_subDrillDurations[subDrill
-                                                            .id] ??
-                                                        5) -
-                                                    1,
-                                              ),
-                                        ),
-                                        Text(
-                                          '${_subDrillDurations[subDrill.id] ?? 5}',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.add_circle_outline,
-                                          ),
-                                          onPressed: () =>
-                                              _updateSubDrillDuration(
-                                                subDrill.id,
-                                                (_subDrillDurations[subDrill
-                                                            .id] ??
-                                                        5) +
-                                                    1,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+              ListTile(
+                title: Text(
+                  'Sub Drills',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                subtitle: Text(
+                  'Tap on the shot map to record shots for each sub-drill',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.layers_outlined,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              ...drill.subDrills.map((subDrill) {
+                final shots = _subDrillShots[subDrill.id] ?? 0;
+                final duration = _subDrillDurations[subDrill.id] ?? 0;
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 4,
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outlineVariant.withOpacity(0.5),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.shadow.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListTile(
+                        title: Text(
+                          subDrill.title,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                        ),
+                        subtitle: Text(subDrill.instruction),
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer,
+                          child: Icon(
+                            Icons.sports_cricket,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Shot map for sub-drill
+                            ShotMapCircles(
+                              selectedValue:
+                                  _currentMapLength[subDrill.id] ?? 0,
+                              primaryColor: Theme.of(
+                                context,
+                              ).colorScheme.secondary,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.secondaryContainer.withOpacity(0.3),
+                              size: 280,
+                              ringCount: 4,
+                              ringColors: const [
+                                Color(0xFF91E0D6),
+                                Color(0xFFFFD37A),
+                                Color(0xFF9EC5FE),
+                                Color(0xFFF9A8D4),
+                              ],
+                              centerColor: Theme.of(
+                                context,
+                              ).colorScheme.secondary,
+                              onValueChanged: (v) => _recordShot(
+                                drill.id,
+                                v,
+                                subDrillId: subDrill.id,
+                              ),
+                              showLegend: false,
+                            ),
+                            const SizedBox(height: 16),
+                            // Stats row with modern design
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Shots',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.labelMedium,
+                                      ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.remove_circle_outline,
+                                            ),
+                                            onPressed: () =>
+                                                _updateSubDrillShots(
+                                                  subDrill.id,
+                                                  (_subDrillShots[subDrill
+                                                              .id] ??
+                                                          0) -
+                                                      1,
+                                                ),
+                                          ),
+                                          Text(
+                                            '${_subDrillShots[subDrill.id] ?? 0}',
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.add_circle_outline,
+                                            ),
+                                            onPressed: () =>
+                                                _updateSubDrillShots(
+                                                  subDrill.id,
+                                                  (_subDrillShots[subDrill
+                                                              .id] ??
+                                                          0) +
+                                                      1,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Duration (min)',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.labelMedium,
+                                      ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.remove_circle_outline,
+                                            ),
+                                            onPressed: () =>
+                                                _updateSubDrillDuration(
+                                                  subDrill.id,
+                                                  (_subDrillDurations[subDrill
+                                                              .id] ??
+                                                          5) -
+                                                      1,
+                                                ),
+                                          ),
+                                          Text(
+                                            '${_subDrillDurations[subDrill.id] ?? 5}',
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.add_circle_outline,
+                                            ),
+                                            onPressed: () =>
+                                                _updateSubDrillDuration(
+                                                  subDrill.id,
+                                                  (_subDrillDurations[subDrill
+                                                              .id] ??
+                                                          5) +
+                                                      1,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ],
           ],
         ),
