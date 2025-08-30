@@ -802,235 +802,165 @@ class _GroupPracticeRecordingScreenState
                 ],
               ),
             ),
+
             const SizedBox(height: 16),
-            TextField(
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: 'Notes',
-                hintText: 'Add notes for this drill...',
-                border: OutlineInputBorder(
+            if (drill.subDrills.isEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.secondaryContainer.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surface,
-              ),
-              onChanged: (value) {
-                _notesPerDrill[drill.id] = value;
-              },
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.secondaryContainer.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (kDebugMode) ...[
-                    Builder(
-                      builder: (context) {
-                        final resolvedEntryId =
-                            widget.drillEntryIdsByDrillId[drill.id] ?? drill.id;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceVariant.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.vpn_key_outlined, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Entry ID: $resolvedEntryId',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.labelMedium,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'Copy entry id',
-                                icon: const Icon(Icons.copy, size: 18),
-                                onPressed: () async {
-                                  await Clipboard.setData(
-                                    ClipboardData(text: resolvedEntryId),
-                                  );
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Entry ID copied'),
-                                        duration: Duration(milliseconds: 800),
-                                        behavior: SnackBarBehavior.floating,
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShotMapCircles(
+                      selectedValue: _currentMapLength[drill.id] ?? 0,
+                      primaryColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.outlineVariant,
+                      size: 360,
+                      ringCount: 4,
+                      // Optional: your own palette (index 0 -> value 1, etc.)
+                      ringColors: const [
+                        Color(0xFF91E0D6), // 1
+                        Color(0xFFFFD37A), // 2
+                        Color(0xFF9EC5FE), // 3
+                        Color(0xFFF9A8D4), // 4
+                      ],
+                      centerColor: Theme.of(context).colorScheme.primary, // 0
+                      onValueChanged: (v) => _recordShot(drill.id, v),
+                      showLegend: false, // turn on if you want
                     ),
-                  ],
-                  ShotMapCircles(
-                    selectedValue: _currentMapLength[drill.id] ?? 0,
-                    primaryColor: Theme.of(context).colorScheme.primary,
-                    backgroundColor: Theme.of(
-                      context,
-                    ).colorScheme.outlineVariant,
-                    size: 360,
-                    ringCount: 4,
-                    // Optional: your own palette (index 0 -> value 1, etc.)
-                    ringColors: const [
-                      Color(0xFF91E0D6), // 1
-                      Color(0xFFFFD37A), // 2
-                      Color(0xFF9EC5FE), // 3
-                      Color(0xFFF9A8D4), // 4
-                    ],
-                    centerColor: Theme.of(context).colorScheme.primary, // 0
-                    onValueChanged: (v) => _recordShot(drill.id, v),
-                    showLegend: false, // turn on if you want
-                  ),
 
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Shot Map',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.undo),
-                            onPressed: () => _undoLastShot(drill.id),
-                            tooltip: 'Undo last shot',
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Shot Map',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.undo),
+                              onPressed: () => _undoLastShot(drill.id),
+                              tooltip: 'Undo last shot',
                             ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${_shotsPerDrill[drill.id]?.length ?? 0} shots',
-                              style: TextStyle(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.onPrimaryContainer,
-                                fontWeight: FontWeight.bold,
+                                ).colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  // Header with actions
-
-                  // Horizontal list
-                  SizedBox(
-                    height: 108,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemBuilder: (context, index) {
-                        final shots = _shotsPerDrill[drill.id] ?? [];
-                        final shot = shots[shots.length - 1 - index];
-
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOut,
-                          width: 72,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outlineVariant,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.fiber_smart_record_outlined,
-                                size: 18,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '#${shot.shotNumber}',
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                              const SizedBox(height: 2),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
+                              child: Text(
+                                '${_shotsPerDrill[drill.id]?.length ?? 0} shots',
+                                style: TextStyle(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.primary.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  '${shot.mapLength}',
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                  ).colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                      separatorBuilder: (_, __) => const SizedBox(width: 10),
-                      itemCount: _shotsPerDrill[drill.id]?.length ?? 0,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    // Header with actions
+
+                    // Horizontal list
+                    SizedBox(
+                      height: 108,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemBuilder: (context, index) {
+                          final shots = _shotsPerDrill[drill.id] ?? [];
+                          final shot = shots[shots.length - 1 - index];
+
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOut,
+                            width: 72,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outlineVariant,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.fiber_smart_record_outlined,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '#${shot.shotNumber}',
+                                  style: Theme.of(context).textTheme.labelMedium
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 2),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    '${shot.mapLength}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        itemCount: _shotsPerDrill[drill.id]?.length ?? 0,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
             if (drill.subDrills.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Divider(),
@@ -1143,107 +1073,6 @@ class _GroupPracticeRecordingScreenState
                               showLegend: false,
                             ),
                             const SizedBox(height: 16),
-                            // Stats row with modern design
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Shots',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.labelMedium,
-                                      ),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.remove_circle_outline,
-                                            ),
-                                            onPressed: () =>
-                                                _updateSubDrillShots(
-                                                  subDrill.id,
-                                                  (_subDrillShots[subDrill
-                                                              .id] ??
-                                                          0) -
-                                                      1,
-                                                ),
-                                          ),
-                                          Text(
-                                            '${_subDrillShots[subDrill.id] ?? 0}',
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.add_circle_outline,
-                                            ),
-                                            onPressed: () =>
-                                                _updateSubDrillShots(
-                                                  subDrill.id,
-                                                  (_subDrillShots[subDrill
-                                                              .id] ??
-                                                          0) +
-                                                      1,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Duration (min)',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.labelMedium,
-                                      ),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.remove_circle_outline,
-                                            ),
-                                            onPressed: () =>
-                                                _updateSubDrillDuration(
-                                                  subDrill.id,
-                                                  (_subDrillDurations[subDrill
-                                                              .id] ??
-                                                          5) -
-                                                      1,
-                                                ),
-                                          ),
-                                          Text(
-                                            '${_subDrillDurations[subDrill.id] ?? 5}',
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.add_circle_outline,
-                                            ),
-                                            onPressed: () =>
-                                                _updateSubDrillDuration(
-                                                  subDrill.id,
-                                                  (_subDrillDurations[subDrill
-                                                              .id] ??
-                                                          5) +
-                                                      1,
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
                           ],
                         ),
                       ),
@@ -1251,6 +1080,21 @@ class _GroupPracticeRecordingScreenState
                   ),
                 );
               }),
+              TextField(
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Notes',
+                  hintText: 'Add notes for this drill...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surface,
+                ),
+                onChanged: (value) {
+                  _notesPerDrill[drill.id] = value;
+                },
+              ),
             ],
           ],
         ),
