@@ -25,7 +25,11 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: _tabBar,
@@ -76,13 +80,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // Load both in parallel
-      await Future.wait([
-        _loadProfile(),
-        _loadPracticeSessions(),
-      ]);
+      await Future.wait([_loadProfile(), _loadPracticeSessions()]);
     } catch (e, st) {
-      developer.log('Error loading user data',
-          name: 'ProfileScreen', error: e, stackTrace: st);
+      developer.log(
+        'Error loading user data',
+        name: 'ProfileScreen',
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       setState(() {
         _profileError = 'Unable to load user data';
@@ -108,8 +113,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _profileError = null;
       });
     } catch (e, st) {
-      developer.log('Error loading profile details',
-          name: 'ProfileScreen', error: e, stackTrace: st);
+      developer.log(
+        'Error loading profile details',
+        name: 'ProfileScreen',
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       setState(() {
         _profileError = 'Failed to load profile';
@@ -122,18 +131,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final userId = _user!.id;
       final sessionsResponse = await _apiClient.get(
-        '/api/v1/practice-sessions/users/$userId?skip=0&limit=50',
+        '/practice-sessions/users/$userId?skip=0&limit=50',
       );
 
       // Normalize to List<Map<String, dynamic>>
       final List<Map<String, dynamic>> normalized = [];
       if (sessionsResponse is List) {
         for (final entry in sessionsResponse.entries) {
-  final key = entry.key;
-  final value = entry.value;
-  print('Key: $key, Value: $value');
-}
-
+          final key = entry.key;
+          final value = entry.value;
+          print('Key: $key, Value: $value');
+        }
       } else if (sessionsResponse is Map<String, dynamic> &&
           sessionsResponse['items'] is List) {
         for (final item in (sessionsResponse['items'] as List)) {
@@ -148,8 +156,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _sessionsError = null;
       });
     } catch (e, st) {
-      developer.log('Error loading practice sessions',
-          name: 'ProfileScreen', error: e, stackTrace: st);
+      developer.log(
+        'Error loading practice sessions',
+        name: 'ProfileScreen',
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       setState(() {
         _sessionsError = 'Failed to load practice sessions';
@@ -172,10 +184,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final headline = Theme.of(context)
-        .textTheme
-        .headlineSmall
-        ?.copyWith(fontWeight: FontWeight.w800);
+    final headline = Theme.of(
+      context,
+    ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800);
 
     return Scaffold(
       body: SafeArea(
@@ -196,8 +207,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       delegate: _SliverAppBarDelegate(
                         TabBar(
                           labelColor: Theme.of(context).colorScheme.primary,
-                          unselectedLabelColor:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
+                          unselectedLabelColor: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant,
                           indicatorColor: Theme.of(context).colorScheme.primary,
                           indicatorWeight: 3,
                           tabs: const [
@@ -216,52 +228,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: _isLoadingProfile
                             ? const _CenteredLoader()
                             : _profileError != null
-                                ? _ErrorView(
-                                    message: _profileError!,
-                                    onRetry: _loadProfile,
-                                  )
-                                : SingleChildScrollView(
-                                    physics:
-                                        const AlwaysScrollableScrollPhysics(),
-                                    padding: const EdgeInsets.all(20),
-                                    child: Column(
-                                      children: [
-                                        _GlassCard(
-                                          child: Column(
-                                            children: [
-                                              _InfoTile(
-                                                icon: Icons.phone_outlined,
-                                                title: 'Phone',
-                                                value:
-                                                    _userDetails?['phone_number'] ??
-                                                        'Not set',
-                                              ),
-                                              const _TDivider(),
-                                              _InfoTile(
-                                                icon: Icons.person_outline,
-                                                title: 'Username',
-                                                value:
-                                                    _userDetails?['username'] ??
-                                                        'Not set',
-                                              ),
-                                              const _TDivider(),
-                                              _InfoTile(
-                                                icon: Icons.numbers_outlined,
-                                                title: 'User ID',
-                                                value:
-                                                    _userDetails?['id']?.toString() ??
-                                                        'N/A',
-                                              ),
-                                            ],
+                            ? _ErrorView(
+                                message: _profileError!,
+                                onRetry: _loadProfile,
+                              )
+                            : SingleChildScrollView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  children: [
+                                    _GlassCard(
+                                      child: Column(
+                                        children: [
+                                          _InfoTile(
+                                            icon: Icons.phone_outlined,
+                                            title: 'Phone',
+                                            value:
+                                                _userDetails?['phone_number'] ??
+                                                'Not set',
                                           ),
-                                        ),
-                                        const SizedBox(height: 20),
-                                        _ActionRow(
-                                          onLogout: _handleLogout,
-                                        ),
-                                      ],
+                                          const _TDivider(),
+                                          _InfoTile(
+                                            icon: Icons.person_outline,
+                                            title: 'Username',
+                                            value:
+                                                _userDetails?['username'] ??
+                                                'Not set',
+                                          ),
+                                          const _TDivider(),
+                                          _InfoTile(
+                                            icon: Icons.numbers_outlined,
+                                            title: 'User ID',
+                                            value:
+                                                _userDetails?['id']
+                                                    ?.toString() ??
+                                                'N/A',
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(height: 20),
+                                    _ActionRow(onLogout: _handleLogout),
+                                  ],
+                                ),
+                              ),
                       ),
 
                       // -------- Practice Sessions Tab --------
@@ -270,29 +280,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: _isLoadingSessions
                             ? const _CenteredLoader()
                             : _sessionsError != null
-                                ? _ErrorView(
-                                    message: _sessionsError!,
-                                    onRetry: _loadPracticeSessions,
-                                  )
-                                : (_practiceSessions.isEmpty)
-                                    ? const _EmptyState(
-                                        title: 'No practice sessions yet',
-                                        subtitle:
-                                            'Your recorded sessions will appear here.',
-                                      )
-                                    : ListView.separated(
-                                        physics:
-                                            const AlwaysScrollableScrollPhysics(),
-                                        padding: const EdgeInsets.all(16),
-                                        itemCount: _practiceSessions.length,
-                                        separatorBuilder: (_, __) =>
-                                            const SizedBox(height: 12),
-                                        itemBuilder: (context, index) {
-                                          return _PracticeSessionCard(
-                                            session: _practiceSessions[index],
-                                          );
-                                        },
-                                      ),
+                            ? _ErrorView(
+                                message: _sessionsError!,
+                                onRetry: _loadPracticeSessions,
+                              )
+                            : (_practiceSessions.isEmpty)
+                            ? const _EmptyState(
+                                title: 'No practice sessions yet',
+                                subtitle:
+                                    'Your recorded sessions will appear here.',
+                              )
+                            : ListView.separated(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _practiceSessions.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 12),
+                                itemBuilder: (context, index) {
+                                  return _PracticeSessionCard(
+                                    session: _practiceSessions[index],
+                                  );
+                                },
+                              ),
                       ),
                     ],
                   ),
@@ -324,8 +333,7 @@ class _HeaderCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius:
-            const BorderRadius.vertical(bottom: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
       child: Row(
         children: [
@@ -343,10 +351,9 @@ class _HeaderCard extends StatelessWidget {
                   fullName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 if (email != null)
                   Text(
@@ -354,8 +361,8 @@ class _HeaderCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
               ],
             ),
@@ -429,20 +436,20 @@ class _InfoTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelSmall
-                        ?.copyWith(color: scheme.onSurfaceVariant)),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -492,7 +499,7 @@ class _PracticeSessionCard extends StatelessWidget {
     final dateTime = DateTime.tryParse(dateTimeStr);
     if (dateTime == null) return 'N/A';
     return DateFormat('MMM d, y • h:mm a').format(dateTime.toLocal());
-    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -529,15 +536,16 @@ class _PracticeSessionCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     drillGroupName,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: scheme.primary.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
@@ -585,10 +593,9 @@ class _PracticeSessionCard extends StatelessWidget {
               const _TDivider(),
               Text(
                 'Drills',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               ...List.generate(drills.length, (index) {
@@ -599,8 +606,7 @@ class _PracticeSessionCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.play_arrow,
-                          size: 18, color: scheme.primary),
+                      Icon(Icons.play_arrow, size: 18, color: scheme.primary),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -608,11 +614,12 @@ class _PracticeSessionCard extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ),
-                      Text('$shots shots',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(color: scheme.onSurfaceVariant)),
+                      Text(
+                        '$shots shots',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -627,14 +634,15 @@ class _PracticeSessionCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Started: ${_formatDateTime(session['started_at'] as String?)}',
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelMedium
-                        ?.copyWith(color: scheme.onSurfaceVariant),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-                Icon(Icons.chevron_right,
-                    color: scheme.onSurfaceVariant.withOpacity(0.6)),
+                Icon(
+                  Icons.chevron_right,
+                  color: scheme.onSurfaceVariant.withOpacity(0.6),
+                ),
               ],
             ),
           ],
@@ -692,21 +700,25 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined,
-                size: 56, color: scheme.onSurfaceVariant),
+            Icon(
+              Icons.inbox_outlined,
+              size: 56,
+              color: scheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 10),
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 6),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ],
         ),
@@ -750,17 +762,15 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           value,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w800),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
         Text(
           label,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: scheme.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
     );

@@ -40,6 +40,10 @@ dependencies:
   retry: ^3.1.1          # For implementing retry logic
   flutter_secure_storage: ^8.0.0   # For secure token storage
   get_it: ^7.2.0         # For dependency injection
+  google_fonts: ^6.3.1   # For modern typography
+  flutter_svg: ^2.2.0    # For SVG support
+  shimmer: ^3.0.0        # For loading effects
+  cached_network_image: ^3.4.1  # For image caching
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
