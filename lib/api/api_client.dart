@@ -65,8 +65,8 @@ class ApiClient {
   final TokenManager _tokenManager = TokenManager();
   late final http.Client _client;
 
-  // Tune this if needed
-  static const Duration _timeout = Duration(seconds: 20);
+  // Increased timeout for slow connections
+  static const Duration _timeout = Duration(seconds: 30);
 
   ApiClient() {
     final clientIO = HttpClient()
@@ -310,17 +310,16 @@ class ApiClient {
     } on SocketException catch (e, st) {
       developer.log('API Error (SocketException)', error: e, stackTrace: st);
       throw NetworkException(
-        'No internet connection or host unreachable.',
+        'No internet connection or connection interrupted.',
         error: e,
         stackTrace: st,
       );
     } on HttpException catch (e, st) {
       developer.log('API Error (HttpException)', error: e, stackTrace: st);
-      throw NetworkException(
-        'HTTP error during POST $path',
-        error: e,
-        stackTrace: st,
-      );
+      final message = e.message.contains('Connection closed')
+          ? 'Connection closed unexpectedly. Please try again.'
+          : 'HTTP error during request.';
+      throw NetworkException(message, error: e, stackTrace: st);
     } on FormatException catch (e, st) {
       developer.log('API Error (FormatException)', error: e, stackTrace: st);
       throw NetworkException(

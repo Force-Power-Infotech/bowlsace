@@ -1,21 +1,21 @@
 import 'dart:async';
+import 'dart:convert';
 
-import 'package:flutter/cupertino.dart';
+import 'package:bowlsace/ui/widgets/appbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import '../../../models/drill_group_detail.dart';
 import '../../../models/shot_record.dart';
 import '../../../models/sub_drill.dart';
 import '../../../repositories/user_repository.dart';
 import '../../../api/services/practice_session_api.dart';
+import '../../../api/api_client.dart';
 
 import '../../../di/service_locator.dart';
-import '../../widgets/shot_map_circles.dart';
+import '../../widgets/drill_card.dart';
 
 class GroupPracticeRecordingScreen extends StatefulWidget {
   final DrillGroupDetail drillGroup;
-
   final String sessionId;
   // Mapping of original drillId -> backend drill entry id
   final Map<String, String> drillEntryIdsByDrillId;
@@ -36,19 +36,21 @@ class _GroupPracticeRecordingScreenState
     extends State<GroupPracticeRecordingScreen> {
   late final UserRepository _userRepository;
   late final PracticeSessionApi _practiceSessionApi;
+
+  // Paging / progress
+  late final PageController _pageController;
   int _currentDrillIndex = 0;
-  Map<String, List<ShotRecord>> _shotsPerDrill = {};
-  Map<String, String> _notesPerDrill = {};
-  Map<String, int> _currentMapLength = {};
-  late PageController _pageController;
 
-  // Sub-drill tracking maps
-  Map<String, int> _subDrillShots = {};
-  Map<String, int> _subDrillDurations = {};
-  Map<String, int> _drillDurations = {}; // For storing drill durations
+  // Drill + subdrill state
+  final Map<String, List<ShotRecord>> _shotsPerDrill = {};
+  final Map<String, String> _notesPerDrill = {};
+  final Map<String, int> _currentMapLength = {};
+  final Map<String, int> _subDrillShots = {};
+  final Map<String, int> _subDrillDurations = {};
+  final Map<String, int> _drillDurations = {};
 
-  // Time control variables
-  late TextEditingController _timeController;
+  // Time control
+  late final TextEditingController _timeController;
   late int _remainingSeconds;
   Timer? _timer;
   bool _isPaused = true;
@@ -60,7 +62,7 @@ class _GroupPracticeRecordingScreenState
     _userRepository = getIt<UserRepository>();
     _practiceSessionApi = getIt<PracticeSessionApi>();
 
-    // Initialize maps for each drill
+    // Initialize maps for each drill and compute total duration
     int totalDuration = 0;
     for (var drill in widget.drillGroup.drills) {
       _shotsPerDrill[drill.id] = [];
@@ -68,23 +70,20 @@ class _GroupPracticeRecordingScreenState
       _currentMapLength[drill.id] = 0;
       _drillDurations[drill.id] = drill.durationMinutes;
 
-      // Initialize sub-drill maps
       for (var subDrill in drill.subDrills) {
         _subDrillShots[subDrill.id] = subDrill.numberOfShots ?? 0;
         _subDrillDurations[subDrill.id] =
             subDrill.duration ?? drill.durationMinutes;
       }
 
-      // Add to total duration
       totalDuration += drill.subDrills.isEmpty
           ? drill.durationMinutes
           : drill.subDrills.fold(
               0,
-              (sum, subDrill) => sum + (_subDrillDurations[subDrill.id] ?? 0),
+              (sum, s) => sum + (_subDrillDurations[s.id] ?? 0),
             );
     }
 
-    // Initialize timer with total duration
     _remainingSeconds = totalDuration * 60;
     _timeController = TextEditingController(text: '${totalDuration}:00');
   }
@@ -97,16 +96,17 @@ class _GroupPracticeRecordingScreenState
     super.dispose();
   }
 
+  // ---------- Timer ----------
   void _startTimer() {
-    _timer?.cancel(); // Cancel any existing timer
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
       setState(() {
         if (_remainingSeconds > 0 && !_isPaused) {
           _remainingSeconds--;
         } else if (_remainingSeconds == 0) {
           _timer?.cancel();
           _isPaused = true;
-          // Show completion dialog
           _showSessionCompleteDialog();
         }
       });
@@ -116,54 +116,8 @@ class _GroupPracticeRecordingScreenState
   void _togglePause() {
     setState(() {
       _isPaused = !_isPaused;
-      if (!_isPaused) {
-        _startTimer();
-      }
+      if (!_isPaused) _startTimer();
     });
-  }
-
-  void _showTimeInputDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Practice Duration'),
-        content: TextField(
-          controller: _timeController,
-          decoration: const InputDecoration(
-            labelText: 'Duration (MM:SS)',
-            hintText: '10:00',
-          ),
-          keyboardType: TextInputType.datetime,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final parts = _timeController.text.split(':');
-              if (parts.length == 2) {
-                try {
-                  final minutes = int.parse(parts[0]);
-                  final seconds = int.parse(parts[1]);
-                  if (minutes >= 0 && seconds >= 0 && seconds < 60) {
-                    setState(() {
-                      _remainingSeconds = (minutes * 60) + seconds;
-                    });
-                    Navigator.pop(context);
-                    return;
-                  }
-                } catch (e) {
-                  // Invalid format
-                }
-              }
-            },
-            child: const Text('Set'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showSessionCompleteDialog() {
@@ -190,120 +144,197 @@ class _GroupPracticeRecordingScreenState
     );
   }
 
-  // Calculate total shots for a drill
-  int _calculateDrillShots(Drill drill) {
-    if (drill.subDrills.isEmpty) {
-      return _shotsPerDrill[drill.id]?.length ?? 0;
+  // ---------- Logging helpers ----------
+  void _logJson(Map<String, dynamic> data) {
+    if (kDebugMode) {
+      try {
+        debugPrint(jsonEncode(data));
+      } catch (_) {
+        debugPrint(
+          jsonEncode({
+            'level': 'warn',
+            'event': 'log.encode_fallback',
+            'payload_as_string': data.toString(),
+          }),
+        );
+      }
     }
-    return drill.subDrills.fold(
-      0,
-      (sum, subDrill) => sum + (_subDrillShots[subDrill.id] ?? 0),
-    );
   }
 
-  // Calculate total duration for a drill from its sub-drills
-  int _calculateDrillDuration(Drill drill) {
-    if (drill.subDrills.isEmpty) {
-      return _drillDurations[drill.id] ?? drill.durationMinutes;
-    }
-    return drill.subDrills.fold(
-      0,
-      (sum, subDrill) => sum + (_subDrillDurations[subDrill.id] ?? 0),
-    );
+  Map<String, dynamic> _resultToJson(dynamic result) {
+    if (result is Map<String, dynamic> || result is List)
+      return {'data': result};
+    return {'data': result?.toString()};
   }
 
+  Map<String, dynamic> _errToJson(Object error, [StackTrace? st]) {
+    final map = <String, dynamic>{
+      'type': error.runtimeType.toString(),
+      'toString': error.toString(),
+    };
+    try {
+      final msg = (error as dynamic).message;
+      if (msg != null) map['message'] = msg;
+    } catch (_) {}
+    try {
+      final code = (error as dynamic).statusCode;
+      if (code != null) map['statusCode'] = code;
+    } catch (_) {}
+    try {
+      final body = (error as dynamic).body;
+      if (body != null) map['body'] = body;
+    } catch (_) {}
+    if (st != null) map['stack'] = st.toString();
+    return map;
+  }
+
+  // ---------- Shot actions ----------
   Future<void> _recordShot(
     String drillId,
     int mapLength, {
     String? subDrillId,
   }) async {
-    try {
-      // Resolve backend drill entry id from original drill id
-      final drillEntryId = widget.drillEntryIdsByDrillId[drillId] ?? drillId;
-      final nextShotNumber = subDrillId != null
-          ? (_subDrillShots[subDrillId] ?? 0) + 1
-          : (_shotsPerDrill[drillId]?.length ?? 0) + 1;
+    const int maxAttempts = 3;
+    const Duration baseDelay = Duration(milliseconds: 800);
+    NetworkException? lastNetErr;
 
-      if (kDebugMode) {
-        debugPrint('⏳ Recording shot...');
-        debugPrint(
-          'Details:\n'
-          '  Session ID: ${widget.sessionId}\n'
-          '  Original Drill ID: $drillId\n'
-          '  Backend Entry ID: $drillEntryId\n'
-          '  Sub-drill ID: ${subDrillId ?? 'N/A'}\n'
-          '  Map Length: $mapLength\n'
-          '  Shot Number: $nextShotNumber\n'
-          '  Current Shots Count: ${subDrillId != null ? _subDrillShots[subDrillId] : _shotsPerDrill[drillId]?.length ?? 0}\n'
-          '  Has Entry ID Mapping: ${widget.drillEntryIdsByDrillId.containsKey(drillId)}',
-        );
-      }
+    final drillEntryId = widget.drillEntryIdsByDrillId[drillId] ?? drillId;
+    final nextShotNumber = subDrillId != null
+        ? (_subDrillShots[subDrillId] ?? 0) + 1
+        : (_shotsPerDrill[drillId]?.length ?? 0) + 1;
 
-      // Call the API to record the shot
-      final result = await _practiceSessionApi.recordShot(
-        sessionId: widget.sessionId,
-        drillEntryId: drillEntryId,
-        matLength: mapLength,
-        shotNumber: nextShotNumber,
-        subDrillId: subDrillId,
-        useSubDrills: subDrillId != null,
-      );
-
-      if (kDebugMode) {
-        debugPrint('✅ Shot recorded successfully');
-        debugPrint('Response: $result');
-      }
-
-      // Update local state
-      setState(() {
-        if (subDrillId != null) {
-          _subDrillShots[subDrillId] = nextShotNumber;
-          _currentMapLength[subDrillId] = mapLength;
-        } else {
-          final shots = _shotsPerDrill[drillId] ?? [];
-          shots.add(
-            ShotRecord(
-              shotNumber: shots.length + 1,
-              mapLength: mapLength,
-              timestamp: DateTime.now(),
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        _logJson({
+          'level': 'info',
+          'event': 'recordShot.attempt',
+          'attempt': attempt,
+          'maxAttempts': maxAttempts,
+          'request': {
+            'sessionId': widget.sessionId,
+            'originalDrillId': drillId,
+            'backendEntryId': drillEntryId,
+            'subDrillId': subDrillId,
+            'mapLength': mapLength,
+            'shotNumber': nextShotNumber,
+            'currentShotsCount': subDrillId != null
+                ? (_subDrillShots[subDrillId] ?? 0)
+                : (_shotsPerDrill[drillId]?.length ?? 0),
+            'hasEntryIdMapping': widget.drillEntryIdsByDrillId.containsKey(
+              drillId,
             ),
+          },
+        });
+
+        final result = await _practiceSessionApi.recordShot(
+          sessionId: widget.sessionId,
+          drillEntryId: drillEntryId,
+          matLength: mapLength,
+          shotNumber: nextShotNumber,
+          subDrillId: subDrillId,
+          useSubDrills: subDrillId != null,
+        );
+
+        _logJson({
+          'level': 'info',
+          'event': 'recordShot.success',
+          'attempt': attempt,
+          ..._resultToJson(result),
+        });
+
+        if (!mounted) return;
+        setState(() {
+          if (subDrillId != null) {
+            _subDrillShots[subDrillId] = nextShotNumber;
+            _currentMapLength[subDrillId] = mapLength;
+          } else {
+            final shots = _shotsPerDrill[drillId] ?? [];
+            shots.add(
+              ShotRecord(
+                mapLength: mapLength,
+                shotNumber: nextShotNumber,
+                timestamp: DateTime.now(),
+              ),
+            );
+            _shotsPerDrill[drillId] = shots;
+            _currentMapLength[drillId] = mapLength;
+          }
+        });
+        return;
+      } on NetworkException catch (e, st) {
+        lastNetErr = e;
+        _logJson({
+          'level': 'error',
+          'event': 'recordShot.network_error',
+          'attempt': attempt,
+          'maxAttempts': maxAttempts,
+          'error': _errToJson(e, st),
+          'retrying': attempt < maxAttempts,
+          'backoffMs': baseDelay.inMilliseconds * attempt,
+        });
+
+        if (attempt < maxAttempts) {
+          await Future.delayed(
+            Duration(milliseconds: baseDelay.inMilliseconds * attempt),
           );
-          _shotsPerDrill[drillId] = shots;
-          _currentMapLength[drillId] = mapLength;
+          continue;
         }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error recording shot: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      } catch (e, st) {
+        _logJson({
+          'level': 'error',
+          'event': 'recordShot.non_network_error',
+          'attempt': attempt,
+          'error': _errToJson(e, st),
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error recording shot: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+        return;
+      }
     }
+
+    if (!mounted) return;
+    _logJson({
+      'level': 'error',
+      'event': 'recordShot.final_failure',
+      'maxAttempts': maxAttempts,
+      'error': _errToJson(lastNetErr ?? Exception('Network error')),
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Failed to record shot after $maxAttempts attempts: ${lastNetErr?.message ?? "Network error"}',
+        ),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
+    );
   }
 
   void _undoLastShot(String drillId) {
-    if (!widget.drillGroup.drills.any(
+    final hasSubDrills = widget.drillGroup.drills.any(
       (d) => d.id == drillId && d.subDrills.isNotEmpty,
-    )) {
-      setState(() {
-        final shots = _shotsPerDrill[drillId] ?? [];
-        if (shots.isNotEmpty) {
-          shots.removeLast();
-          _shotsPerDrill[drillId] = shots;
-          _currentMapLength[drillId] = shots.isEmpty ? 0 : shots.last.mapLength;
-        }
-      });
-    }
+    );
+    if (hasSubDrills) return;
+
+    setState(() {
+      final shots = _shotsPerDrill[drillId] ?? [];
+      if (shots.isNotEmpty) {
+        shots.removeLast();
+        _shotsPerDrill[drillId] = shots;
+        _currentMapLength[drillId] = shots.isEmpty ? 0 : shots.last.mapLength;
+      }
+    });
   }
 
-  void _updateSubDrillShots(
+  Future<void> _updateSubDrillShots(
     String subDrillId,
     int shots, {
     int? mapLength,
   }) async {
-    // Find the sub-drill and its parent drill
     String drillId = '';
     String drillName = '';
     String subDrillTitle = '';
@@ -340,8 +371,6 @@ class _GroupPracticeRecordingScreenState
 
     try {
       final newShots = shots.clamp(0, 100);
-
-      // Resolve backend drill entry id from original drill id
       final drillEntryId = widget.drillEntryIdsByDrillId[drillId] ?? drillId;
 
       if (kDebugMode) {
@@ -352,30 +381,31 @@ class _GroupPracticeRecordingScreenState
         );
       }
 
-      // Call the API to record the sub-drill shot
       await _practiceSessionApi.recordShot(
         sessionId: widget.sessionId,
         drillEntryId: drillEntryId,
-        matLength: mapLength ?? 1, // Use provided map length or default
+        matLength: mapLength ?? 1,
         shotNumber: newShots,
         subDrillId: subDrillId,
         useSubDrills: true,
       );
 
+      if (!mounted) return;
       setState(() {
         _subDrillShots[subDrillId] = newShots;
-        if (drillName.isNotEmpty && subDrillTitle.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '$drillName - $subDrillTitle: Shots updated to $newShots',
-              ),
-              duration: const Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
       });
+
+      if (drillName.isNotEmpty && subDrillTitle.isNotEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$drillName - $subDrillTitle: Shots updated to $newShots',
+            ),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -397,12 +427,11 @@ class _GroupPracticeRecordingScreenState
   }
 
   void _updateSubDrillDuration(String subDrillId, int duration) {
-    // Find the sub-drill and its parent drill
     String drillName = '';
     String subDrillTitle = '';
     for (var drill in widget.drillGroup.drills) {
-      final subDrill = drill.subDrills.firstWhere(
-        (sd) => sd.id == subDrillId,
+      final sd = drill.subDrills.firstWhere(
+        (x) => x.id == subDrillId,
         orElse: () => SubDrill(
           title: '',
           instruction: '',
@@ -411,9 +440,9 @@ class _GroupPracticeRecordingScreenState
           createdAt: DateTime.now(),
         ),
       );
-      if (subDrill.id == subDrillId) {
+      if (sd.id == subDrillId) {
         drillName = drill.name;
-        subDrillTitle = subDrill.title;
+        subDrillTitle = sd.title;
         break;
       }
     }
@@ -422,19 +451,20 @@ class _GroupPracticeRecordingScreenState
       if (duration >= 0) {
         _subDrillDurations[subDrillId] = duration;
         _updateTotalTime();
-        if (drillName.isNotEmpty && subDrillTitle.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '$drillName - $subDrillTitle: Duration updated to $duration min',
-              ),
-              duration: const Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
       }
     });
+
+    if (drillName.isNotEmpty && subDrillTitle.isNotEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$drillName - $subDrillTitle: Duration updated to $duration min',
+          ),
+          duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _updateTotalTime() {
@@ -444,119 +474,37 @@ class _GroupPracticeRecordingScreenState
           ? (_drillDurations[drill.id] ?? drill.durationMinutes)
           : drill.subDrills.fold(
               0,
-              (sum, subDrill) => sum + (_subDrillDurations[subDrill.id] ?? 0),
+              (sum, sd) => sum + (_subDrillDurations[sd.id] ?? 0),
             );
     }
     _remainingSeconds = totalMinutes * 60;
     _timeController.text = '$totalMinutes:00';
   }
 
-  Widget _buildStatCard({
-    required IconData icon,
-    required String title,
-    required int value,
-    String? unit,
-    required VoidCallback onDecrease,
-    required VoidCallback onIncrease,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(icon, size: 16),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton.filled(
-                icon: const Icon(Icons.remove, size: 16),
-                onPressed: onDecrease,
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                  foregroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onPrimaryContainer,
-                  padding: const EdgeInsets.all(8),
-                  minimumSize: const Size(32, 32),
-                ),
-              ),
-              Text(
-                unit != null ? '$value $unit' : '$value',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              IconButton.filled(
-                icon: const Icon(Icons.add, size: 16),
-                onPressed: onIncrease,
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                  foregroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onPrimaryContainer,
-                  padding: const EdgeInsets.all(8),
-                  minimumSize: const Size(32, 32),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _savePracticeSession() async {
     try {
-      // Get current user ID from user repository
       final user = await _userRepository.getCurrentUser();
       if (user == null) {
         throw Exception('User not found. Please login first.');
       }
 
-      // Prepare sub-drills data for each drill
       final drills = widget.drillGroup.drills.map((drill) {
-        // Get sub-drills data if they exist
         final subDrillsData = drill.subDrills
             .map(
-              (subDrill) => {
-                'id': subDrill.id,
-                'name': subDrill.title,
-                'duration': _subDrillDurations[subDrill.id] ?? 0,
-                'shots': _subDrillShots[subDrill.id] ?? 0,
+              (sd) => {
+                'id': sd.id,
+                'name': sd.title,
+                'duration': _subDrillDurations[sd.id] ?? 0,
+                'shots': _subDrillShots[sd.id] ?? 0,
               },
             )
             .toList();
 
-        // Calculate duration and shots
         final duration = drill.subDrills.isEmpty
             ? (_drillDurations[drill.id] ?? drill.durationMinutes)
-            : subDrillsData.fold(0, (sum, sd) => sum + (sd['duration'] as int));
+            : subDrillsData.fold(0, (sum, m) => sum + (m['duration'] as int));
 
-        // Calculate accuracy (defaulting to 100 as per API example)
-        final accuracy = 100;
+        const accuracy = 100;
 
         return {
           'id': drill.id,
@@ -569,7 +517,6 @@ class _GroupPracticeRecordingScreenState
         };
       }).toList();
 
-      // Create the practice session (no idempotency key for now)
       final sessionResponse = await _practiceSessionApi.createPracticeSession(
         userId: user.id.toString(),
         drillGroupId: widget.drillGroup.id,
@@ -582,7 +529,6 @@ class _GroupPracticeRecordingScreenState
       final String sessionId = sessionResponse['id'] as String;
       debugPrint('Practice session created with ID: $sessionId');
 
-      // Build a map of original drillId -> drill entry id returned by session
       final Map<String, String> drillEntryIdsByDrillId = {};
       if (sessionResponse['drills'] is List) {
         for (final item in (sessionResponse['drills'] as List)) {
@@ -596,10 +542,8 @@ class _GroupPracticeRecordingScreenState
         }
       }
 
-      // Now record individual shots for each drill
       for (var drill in widget.drillGroup.drills) {
         final shots = _shotsPerDrill[drill.id] ?? [];
-
         for (var shot in shots) {
           await _practiceSessionApi.recordShot(
             sessionId: sessionId,
@@ -610,12 +554,9 @@ class _GroupPracticeRecordingScreenState
           );
         }
 
-        // If drill has sub-drills, record those shots too
         if (drill.subDrills.isNotEmpty) {
           for (var subDrill in drill.subDrills) {
             final numShots = _subDrillShots[subDrill.id] ?? 0;
-
-            // For sub-drills, we just record the number of shots completed
             if (numShots > 0) {
               await _practiceSessionApi.recordShot(
                 sessionId: sessionId,
@@ -630,23 +571,17 @@ class _GroupPracticeRecordingScreenState
         }
       }
 
-      // Only proceed if context is still valid
       if (!mounted) return;
 
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Practice session saved successfully!'),
           behavior: SnackBarBehavior.floating,
         ),
       );
-
       Navigator.pop(context);
     } catch (e) {
-      // Only proceed if context is still valid
       if (!mounted) return;
-
-      // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error saving practice session: $e'),
@@ -657,629 +592,166 @@ class _GroupPracticeRecordingScreenState
     }
   }
 
+  // ---------- UI pieces ----------
   Widget _buildDrillCard(Drill drill) {
-    final isSmallScreen = MediaQuery.of(context).size.width < 600;
-    return Card(
-      elevation: 8,
-      margin: EdgeInsets.symmetric(
-        horizontal: isSmallScreen ? 16 : 24,
-        vertical: 8,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              drill.name,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              drill.description,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.primaryContainer.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      // Total Shots section
-                      Column(
-                        children: [
-                          Text(
-                            'Total Shots',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.8),
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (drill.subDrills.isEmpty) ...[
-                            Text(
-                              '${_shotsPerDrill[drill.id]?.length ?? 0}',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                            ),
-                          ] else
-                            Text(
-                              '${_calculateDrillShots(drill)}',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                            ),
-                        ],
-                      ),
-                      // Total Duration section
-                      Column(
-                        children: [
-                          Text(
-                            'Duration (min)',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.8),
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (drill.subDrills.isEmpty) ...[
-                            // Controls for drills without sub-drills
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline),
-                                  onPressed: () => _updateDrillDuration(
-                                    drill.id,
-                                    (_drillDurations[drill.id] ??
-                                            drill.durationMinutes) -
-                                        1,
-                                  ),
-                                ),
-                                Text(
-                                  '${_drillDurations[drill.id] ?? drill.durationMinutes}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineSmall
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add_circle_outline),
-                                  onPressed: () => _updateDrillDuration(
-                                    drill.id,
-                                    (_drillDurations[drill.id] ??
-                                            drill.durationMinutes) +
-                                        1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ] else
-                            Text(
-                              '${_calculateDrillDuration(drill)}',
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-            if (drill.subDrills.isEmpty) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.secondaryContainer.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ShotMapCircles(
-                      selectedValue: _currentMapLength[drill.id] ?? 0,
-                      primaryColor: Theme.of(context).colorScheme.primary,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.outlineVariant,
-                      size: 360,
-                      ringCount: 4,
-                      // Optional: your own palette (index 0 -> value 1, etc.)
-                      ringColors: const [
-                        Color(0xFF91E0D6), // 1
-                        Color(0xFFFFD37A), // 2
-                        Color(0xFF9EC5FE), // 3
-                        Color(0xFFF9A8D4), // 4
-                      ],
-                      centerColor: Theme.of(context).colorScheme.primary, // 0
-                      onValueChanged: (v) => _recordShot(drill.id, v),
-                      showLegend: false, // turn on if you want
-                    ),
-
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Shot Map',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.undo),
-                              onPressed: () => _undoLastShot(drill.id),
-                              tooltip: 'Undo last shot',
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${_shotsPerDrill[drill.id]?.length ?? 0} shots',
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    // Header with actions
-
-                    // Horizontal list
-                    SizedBox(
-                      height: 108,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) {
-                          final shots = _shotsPerDrill[drill.id] ?? [];
-                          final shot = shots[shots.length - 1 - index];
-
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOut,
-                            width: 72,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surface,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.outlineVariant,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.06),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.fiber_smart_record_outlined,
-                                  size: 18,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '#${shot.shotNumber}',
-                                  style: Theme.of(context).textTheme.labelMedium
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 2),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    '${shot.mapLength}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemCount: _shotsPerDrill[drill.id]?.length ?? 0,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (drill.subDrills.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              ListTile(
-                title: Text(
-                  'Sub Drills',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                subtitle: Text(
-                  'Tap on the shot map to record shots for each sub-drill',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                leading: CircleAvatar(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                  child: Icon(
-                    Icons.layers_outlined,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...drill.subDrills.map((subDrill) {
-                final shots = _subDrillShots[subDrill.id] ?? 0;
-                final duration = _subDrillDurations[subDrill.id] ?? 0;
-
-                return Container(
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 4,
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outlineVariant.withOpacity(0.5),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.shadow.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ListTile(
-                        title: Text(
-                          subDrill.title,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                        ),
-                        subtitle: Text(subDrill.instruction),
-                        leading: CircleAvatar(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primaryContainer,
-                          child: Icon(
-                            Icons.sports_cricket,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Shot map for sub-drill
-                            ShotMapCircles(
-                              selectedValue:
-                                  _currentMapLength[subDrill.id] ?? 0,
-                              primaryColor: Theme.of(
-                                context,
-                              ).colorScheme.secondary,
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.secondaryContainer.withOpacity(0.3),
-                              size: 280,
-                              ringCount: 4,
-                              ringColors: const [
-                                Color(0xFF91E0D6),
-                                Color(0xFFFFD37A),
-                                Color(0xFF9EC5FE),
-                                Color(0xFFF9A8D4),
-                              ],
-                              centerColor: Theme.of(
-                                context,
-                              ).colorScheme.secondary,
-                              onValueChanged: (v) => _recordShot(
-                                drill.id,
-                                v,
-                                subDrillId: subDrill.id,
-                              ),
-                              showLegend: false,
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-              TextField(
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'Notes',
-                  hintText: 'Add notes for this drill...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  filled: true,
-                  fillColor: Theme.of(context).colorScheme.surface,
-                ),
-                onChanged: (value) {
-                  _notesPerDrill[drill.id] = value;
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
+    return DrillCard(
+      drill: drill,
+      shotsPerDrill: _shotsPerDrill,
+      subDrillShotsCount: _subDrillShots,
+      drillDurations: _drillDurations,
+      subDrillDurations: _subDrillDurations,
+      currentMapLength: _currentMapLength,
+      notesPerDrill: _notesPerDrill,
+      onUpdateDrillDuration: _updateDrillDuration,
+      onRecordShot: (drillId, v, {subDrillId}) =>
+          _recordShot(drillId, v, subDrillId: subDrillId),
+      onUndoLastShot: _undoLastShot,
+      onNotesChanged: (id, text) => _notesPerDrill[id] = text,
+      ringCount: 4,
+      drillShotMapSize: 340,
+      subDrillShotMapSize: 260,
+      compactBreakpoint: 600,
     );
+  }
+
+  double get _overallProgress {
+    final total = widget.drillGroup.drills.length;
+    if (total == 0) return 0;
+    // Progress based on paging position (index is 0-based)
+    return (_currentDrillIndex + 1) / total;
   }
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
+    final theme = Theme.of(context);
+    final total = widget.drillGroup.drills.length;
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(widget.drillGroup.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.timer),
-            onPressed: _showTimeInputDialog,
-          ),
-          IconButton(
-            icon: Icon(_isPaused ? Icons.play_circle : Icons.pause_circle),
-            onPressed: _togglePause,
-          ),
-        ],
+      // Your custom timer app bar (kept)
+      appBar: TimerAppBar(
+        remainingSeconds: _remainingSeconds,
+        isPaused: _isPaused,
+        onPauseToggle: _togglePause,
+        onTimeChanged: (secs) => setState(() => _remainingSeconds = secs),
       ),
+
       body: Column(
         children: [
+          // ===== Session Header: group name + progress + timer chip look =====
           Container(
-            padding: EdgeInsets.only(
-              top: topPadding,
-              left: 16,
-              right: 16,
-              bottom: 12,
-            ),
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Theme.of(context).colorScheme.primary,
-                  Theme.of(context).colorScheme.primaryContainer,
-                ],
-              ),
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(24),
+              color: theme.colorScheme.surface,
+              border: Border(
+                bottom: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withOpacity(0.35),
+                ),
               ),
             ),
-            child: SafeArea(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // MM:SS (minutes:seconds) — bold, modern
-                  Text(
-                    '${(_remainingSeconds ~/ 60).toString().padLeft(2, '0')}:${(_remainingSeconds % 60).toString().padLeft(2, '0')}',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onPrimary,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Group title + play/pause quick control
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.drillGroup.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    _TimerChip(isPaused: _isPaused, onTap: _togglePause),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Overall progress
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: _overallProgress.clamp(0, 1),
+                    minHeight: 6,
                   ),
-                  const SizedBox(width: 12),
-
-                  // Subtle label "min:sec"
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      'min:sec',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onPrimary.withOpacity(0.9),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Drill ${_currentDrillIndex + 1} of $total',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // Edit button -> minutes/seconds picker
-                  IconButton(
-                    tooltip: 'Set time (MM:SS)',
-                    icon: const Icon(Icons.edit, color: Colors.white),
-                    onPressed: () async {
-                      // Bottom sheet with CupertinoTimerPicker in minutes/seconds mode
-                      await showModalBottomSheet<void>(
-                        context: context,
-                        isScrollControlled: true,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(20),
-                          ),
-                        ),
-                        builder: (ctx) {
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              bottom: MediaQuery.of(ctx).viewInsets.bottom,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const SizedBox(height: 8),
-                                Container(
-                                  height: 4,
-                                  width: 44,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black26,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                ListTile(
-                                  title: const Text('Set Total Time'),
-                                  trailing: TextButton(
-                                    onPressed: () => Navigator.of(ctx).pop(),
-                                    child: const Text('Done'),
-                                  ),
-                                ),
-                                SizedBox(
-                                  height: 180,
-                                  child: CupertinoTimerPicker(
-                                    mode: CupertinoTimerPickerMode
-                                        .ms, // minutes & seconds
-                                    initialTimerDuration: Duration(
-                                      seconds: _remainingSeconds,
-                                    ),
-                                    onTimerDurationChanged: (dur) {
-                                      setState(() {
-                                        _remainingSeconds = dur.inSeconds;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ],
-              ),
+                    Text(
+                      // Show minutes remaining as a hint
+                      '${(_remainingSeconds / 60).ceil()} min left',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
 
+          // ===== Pager =====
           Expanded(
             child: PageView.builder(
               controller: _pageController,
-              itemCount: widget.drillGroup.drills.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentDrillIndex = index;
-                });
-              },
+              itemCount: total,
+              onPageChanged: (index) => setState(() {
+                _currentDrillIndex = index;
+              }),
               itemBuilder: (context, index) {
+                final drill = widget.drillGroup.drills[index];
                 return LayoutBuilder(
                   builder: (context, constraints) {
                     return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
+                          minHeight: constraints.maxHeight - 40,
                         ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Drill ${index + 1}/${widget.drillGroup.drills.length}',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
+                            // Drill Title Strip
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
                                 ),
-                              ],
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primaryContainer
+                                      .withOpacity(0.35),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  drill.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
                             ),
-                            _buildDrillCard(widget.drillGroup.drills[index]),
                             const SizedBox(height: 16),
+
+                            // Drill Card (your component)
+                            _buildDrillCard(drill),
+
+                            // Space to breathe at bottom so it doesn't clash with nav bar
+                            const SizedBox(height: 12),
                           ],
                         ),
                       ),
@@ -1289,58 +761,96 @@ class _GroupPracticeRecordingScreenState
               },
             ),
           ),
+
+          // ===== Pager Dots + Bottom Action Bar =====
           SafeArea(
+            top: false,
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Column(
                 children: [
-                  if (_currentDrillIndex > 0)
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          _pageController.previousPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        icon: const Icon(Icons.arrow_back),
-                        label: const Text('Previous'),
-                      ),
-                    ),
-                  if (_currentDrillIndex > 0) const SizedBox(width: 8),
-                  Expanded(
-                    child:
-                        _currentDrillIndex < widget.drillGroup.drills.length - 1
-                        ? ElevatedButton.icon(
-                            onPressed: () {
-                              _pageController.nextPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            icon: const Icon(Icons.arrow_forward),
-                            label: const Text('Next'),
-                          )
-                        : ElevatedButton.icon(
-                            onPressed: _savePracticeSession,
-                            icon: const Icon(Icons.save),
-                            label: const Text('Save Session'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.primary,
-                              foregroundColor: Theme.of(
-                                context,
-                              ).colorScheme.onPrimary,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
+                  _PageDots(
+                    count: total,
+                    index: _currentDrillIndex,
+                    onDotTapped: (i) {
+                      _pageController.animateToPage(
+                        i,
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      // Prev (ghost / tonal)
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _currentDrillIndex > 0
+                              ? () {
+                                  _pageController.previousPage(
+                                    duration: const Duration(milliseconds: 260),
+                                    curve: Curves.easeInOut,
+                                  );
+                                }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.surfaceVariant,
+                            foregroundColor: theme.colorScheme.onSurfaceVariant,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
+                          icon: const Icon(Icons.arrow_back_rounded),
+                          label: const Text('Previous'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Next / Save (primary)
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          child: _currentDrillIndex < total - 1
+                              ? ElevatedButton.icon(
+                                  key: const ValueKey('next'),
+                                  onPressed: () {
+                                    _pageController.nextPage(
+                                      duration: const Duration(
+                                        milliseconds: 260,
+                                      ),
+                                      curve: Curves.easeInOut,
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.arrow_forward_rounded),
+                                  label: const Text('Next'),
+                                )
+                              : ElevatedButton.icon(
+                                  key: const ValueKey('save'),
+                                  onPressed: _savePracticeSession,
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.save_rounded),
+                                  label: const Text('Save Session'),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1348,6 +858,80 @@ class _GroupPracticeRecordingScreenState
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------- Small UI helpers ----------
+
+class _TimerChip extends StatelessWidget {
+  final bool isPaused;
+  final VoidCallback onTap;
+  const _TimerChip({required this.isPaused, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.primaryContainer,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                isPaused ? 'Resume' : 'Pause',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PageDots extends StatelessWidget {
+  final int count;
+  final int index;
+  final ValueChanged<int>? onDotTapped;
+  const _PageDots({required this.count, required this.index, this.onDotTapped});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: List.generate(count, (i) {
+        final active = i == index;
+        return GestureDetector(
+          onTap: onDotTapped == null ? null : () => onDotTapped!(i),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 8,
+            width: active ? 20 : 8,
+            decoration: BoxDecoration(
+              color: active
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outlineVariant.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
