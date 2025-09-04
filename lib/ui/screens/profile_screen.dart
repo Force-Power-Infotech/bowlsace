@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
@@ -128,25 +129,125 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadPracticeSessions() async {
+    developer.log('Starting _loadPracticeSessions()', name: 'ProfileScreen');
+
     try {
+      if (_user == null) {
+        developer.log('_user is null; aborting fetch.', name: 'ProfileScreen');
+        setState(() {
+          _practiceSessions = const [];
+          _isLoadingSessions = false;
+          _sessionsError = 'User not available';
+        });
+        return;
+      }
+
       final userId = _user!.id;
+      developer.log(
+        'Fetching practice sessions for userId=$userId',
+        name: 'ProfileScreen',
+      );
+
       final sessionsResponse = await _apiClient.get(
         '/practice-sessions/users/$userId?skip=0&limit=50',
       );
 
-      // Normalize to List<Map<String, dynamic>>
+      developer.log(
+        'Raw sessionsResponse type: ${sessionsResponse.runtimeType}',
+        name: 'ProfileScreen',
+      );
+
+      // Pretty print full JSON
+      try {
+        final pretty = const JsonEncoder.withIndent(
+          '  ',
+        ).convert(sessionsResponse);
+        developer.log('Full sessionsResponse:\n$pretty', name: 'ProfileScreen');
+      } catch (err) {
+        developer.log('Pretty print failed: $err', name: 'ProfileScreen');
+      }
+
       final List<Map<String, dynamic>> normalized = [];
+
+      // ------- Schema-aware extraction -------
       if (sessionsResponse is List) {
-        for (final entry in sessionsResponse.entries) {
-          final key = entry.key;
-          final value = entry.value;
-          print('Key: $key, Value: $value');
+        developer.log(
+          'sessionsResponse is a List (length: ${sessionsResponse.length})',
+          name: 'ProfileScreen',
+        );
+        for (var i = 0; i < sessionsResponse.length; i++) {
+          final v = sessionsResponse[i];
+          developer.log('List[$i] → ${v.runtimeType}', name: 'ProfileScreen');
+          if (v is Map<String, dynamic>) normalized.add(v);
         }
-      } else if (sessionsResponse is Map<String, dynamic> &&
-          sessionsResponse['items'] is List) {
-        for (final item in (sessionsResponse['items'] as List)) {
-          if (item is Map<String, dynamic>) normalized.add(item);
+      } else if (sessionsResponse is Map<String, dynamic>) {
+        developer.log(
+          'sessionsResponse is a Map with keys: ${sessionsResponse.keys.toList()}',
+          name: 'ProfileScreen',
+        );
+
+        List? itemsList;
+
+        // Preferred keys in order
+        if (sessionsResponse['data'] is List) {
+          itemsList = sessionsResponse['data'] as List;
+          developer.log(
+            'Using "data" list (length: ${itemsList.length})',
+            name: 'ProfileScreen',
+          );
+        } else if (sessionsResponse['items'] is List) {
+          itemsList = sessionsResponse['items'] as List;
+          developer.log(
+            'Using "items" list (length: ${itemsList.length})',
+            name: 'ProfileScreen',
+          );
+        } else {
+          // Fallback: find the first value that is a List
+          for (final k in sessionsResponse.keys) {
+            final v = sessionsResponse[k];
+            if (v is List) {
+              itemsList = v;
+              developer.log(
+                'Fallback: using list at key "$k" (length: ${itemsList.length})',
+                name: 'ProfileScreen',
+              );
+              break;
+            }
+          }
         }
+
+        if (itemsList == null) {
+          developer.log(
+            'No list field found (expected "data" or "items").',
+            name: 'ProfileScreen',
+          );
+        } else {
+          for (var i = 0; i < itemsList.length; i++) {
+            final item = itemsList[i];
+            developer.log(
+              'Item $i → ${item.runtimeType}',
+              name: 'ProfileScreen',
+            );
+            if (item is Map<String, dynamic>) normalized.add(item);
+          }
+        }
+      } else {
+        developer.log(
+          'Unexpected response type: ${sessionsResponse.runtimeType}',
+          name: 'ProfileScreen',
+        );
+      }
+      // --------------------------------------
+
+      // Optional: log a sample of the first normalized item
+      if (normalized.isNotEmpty) {
+        final samplePretty = const JsonEncoder.withIndent(
+          '  ',
+        ).convert(normalized.first);
+        developer.log(
+          'First normalized item sample:\n$samplePretty',
+          name: 'ProfileScreen',
+        );
       }
 
       if (!mounted) return;
@@ -155,6 +256,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _isLoadingSessions = false;
         _sessionsError = null;
       });
+
+      developer.log(
+        'Successfully normalized ${normalized.length} sessions',
+        name: 'ProfileScreen',
+      );
     } catch (e, st) {
       developer.log(
         'Error loading practice sessions',
