@@ -411,24 +411,24 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              _startGroupPractice(detail);
-                            },
-                            icon: const Icon(Icons.sports_cricket),
-                            label: const Text('Start Group Practice'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
+                        // const SizedBox(height: 16),
+                        // SizedBox(
+                        //   width: double.infinity,
+                        //   child: ElevatedButton.icon(
+                        //     onPressed: () {
+                        //       _startGroupPractice(detail);
+                        //     },
+                        //     icon: const Icon(Icons.sports_cricket),
+                        //     label: const Text('Start Group Practice'),
+                        //     style: ElevatedButton.styleFrom(
+                        //       padding: const EdgeInsets.symmetric(vertical: 16),
+                        //       shape: RoundedRectangleBorder(
+                        //         borderRadius: BorderRadius.circular(12),
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ),
+                        // const SizedBox(height: 24),
                       ],
                     ),
                   ),
@@ -641,41 +641,41 @@ class _DrillCardState extends State<DrillCard> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.star,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSecondaryContainer,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Difficulty: ${widget.drill.difficulty}',
-                              style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSecondaryContainer,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      // const SizedBox(width: 8),
+                      // Container(
+                      //   padding: const EdgeInsets.symmetric(
+                      //     horizontal: 12,
+                      //     vertical: 6,
+                      //   ),
+                      //   decoration: BoxDecoration(
+                      //     color: Theme.of(
+                      //       context,
+                      //     ).colorScheme.secondaryContainer,
+                      //     borderRadius: BorderRadius.circular(20),
+                      //   ),
+                      //   child: Row(
+                      //     mainAxisSize: MainAxisSize.min,
+                      //     children: [
+                      //       Icon(
+                      //         Icons.star,
+                      //         color: Theme.of(
+                      //           context,
+                      //         ).colorScheme.onSecondaryContainer,
+                      //         size: 16,
+                      //       ),
+                      //       const SizedBox(width: 4),
+                      //       // Text(
+                      //       //   'Difficulty: ${widget.drill.difficulty}',
+                      //       //   style: TextStyle(
+                      //       //     color: Theme.of(
+                      //       //       context,
+                      //       //     ).colorScheme.onSecondaryContainer,
+                      //       //     fontWeight: FontWeight.w500,
+                      //       //   ),
+                      //       // ),
+                      //     ],
+                      //   ),
+                      // ),
                       if (widget.drill.drillType.isNotEmpty) ...[
                         const SizedBox(width: 8),
                         Container(
@@ -738,40 +738,40 @@ class _DrillCardState extends State<DrillCard> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PracticeRecordingScreen(
-                                  drill: widget.drill,
-                                  drillGroupId: widget.drill.drillGroupId,
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.sports_cricket),
-                          label: const Text('Start Practice'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (widget.drill.videoUrl != null) ...[
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        // Handle video playback
-                      },
-                      icon: const Icon(Icons.play_circle_outline),
-                      label: const Text('Watch Video'),
-                    ),
-                  ],
+                  // Row(
+                  //   children: [
+                  //     // Expanded(
+                  //     //   child: ElevatedButton.icon(
+                  //     //     onPressed: () {
+                  //     //       Navigator.push(
+                  //     //         context,
+                  //     //         MaterialPageRoute(
+                  //     //           builder: (context) => PracticeRecordingScreen(
+                  //     //             drill: widget.drill,
+                  //     //             drillGroupId: widget.drill.drillGroupId,
+                  //     //           ),
+                  //     //         ),
+                  //     //       );
+                  //     //     },
+                  //     //     icon: const Icon(Icons.sports_cricket),
+                  //     //     label: const Text('Start Practice'),
+                  //     //     style: ElevatedButton.styleFrom(
+                  //     //       padding: const EdgeInsets.symmetric(vertical: 12),
+                  //     //     ),
+                  //     //   ),
+                  //     // ),
+                  //   ],
+                  // ),
+                  // if (widget.drill.videoUrl != null) ...[
+                  //   const SizedBox(height: 12),
+                  //   OutlinedButton.icon(
+                  //     onPressed: () {
+                  //       // Handle video playback
+                  //     },
+                  //     icon: const Icon(Icons.play_circle_outline),
+                  //     label: const Text('Watch Video'),
+                  //   ),
+                  // ],
                   if (_isExpanded && widget.drill.subDrills.isNotEmpty) ...[
                     const Divider(height: 32),
                     Row(

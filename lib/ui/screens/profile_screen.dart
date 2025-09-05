@@ -3,10 +3,19 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
+
 import '../../models/user.dart';
 import '../../repositories/user_repository.dart';
 import '../../utils/navigation_service.dart';
 import '../../api/api_client.dart';
+
+import 'profile/widgets/common/common_widgets.dart';
+import 'profile/widgets/common/sliver_app_bar_delegate.dart';
+import 'profile/widgets/header_card.dart';
+import 'profile/widgets/profile_tab/glass_card.dart';
+import 'profile/widgets/profile_tab/info_tile.dart';
+import 'profile/widgets/profile_tab/action_row.dart';
+import 'profile/widgets/practice_session/practice_session_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -107,9 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       setState(() {
         // Defensive cast
-        _userDetails = (userResponse is Map<String, dynamic>)
-            ? userResponse
-            : <String, dynamic>{};
+        _userDetails = userResponse as Map<String, dynamic>;
         _isLoadingProfile = false;
         _profileError = null;
       });
@@ -180,7 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           developer.log('List[$i] → ${v.runtimeType}', name: 'ProfileScreen');
           if (v is Map<String, dynamic>) normalized.add(v);
         }
-      } else if (sessionsResponse is Map<String, dynamic>) {
+      } else if (sessionsResponse is Map) {
         developer.log(
           'sessionsResponse is a Map with keys: ${sessionsResponse.keys.toList()}',
           name: 'ProfileScreen',
@@ -290,10 +297,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final headline = Theme.of(
-      context,
-    ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800);
-
     return Scaffold(
       body: SafeArea(
         child: (_isLoadingProfile && _isLoadingSessions)
@@ -303,7 +306,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: NestedScrollView(
                   headerSliverBuilder: (context, innerBoxIsScrolled) => [
                     SliverToBoxAdapter(
-                      child: _HeaderCard(
+                      child: HeaderCard(
                         fullName: _userDetails?['full_name'] ?? 'User',
                         email: _userDetails?['email'] as String?,
                       ),
@@ -332,9 +335,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       RefreshIndicator(
                         onRefresh: _loadProfile,
                         child: _isLoadingProfile
-                            ? const _CenteredLoader()
+                            ? const CenteredLoader()
                             : _profileError != null
-                            ? _ErrorView(
+                            ? ErrorView(
                                 message: _profileError!,
                                 onRetry: _loadProfile,
                               )
@@ -343,26 +346,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 padding: const EdgeInsets.all(20),
                                 child: Column(
                                   children: [
-                                    _GlassCard(
+                                    GlassCard(
                                       child: Column(
                                         children: [
-                                          _InfoTile(
+                                          InfoTile(
                                             icon: Icons.phone_outlined,
                                             title: 'Phone',
                                             value:
                                                 _userDetails?['phone_number'] ??
                                                 'Not set',
                                           ),
-                                          const _TDivider(),
-                                          _InfoTile(
+                                          const TDivider(),
+                                          InfoTile(
                                             icon: Icons.person_outline,
                                             title: 'Username',
                                             value:
                                                 _userDetails?['username'] ??
                                                 'Not set',
                                           ),
-                                          const _TDivider(),
-                                          _InfoTile(
+                                          const TDivider(),
+                                          InfoTile(
                                             icon: Icons.numbers_outlined,
                                             title: 'User ID',
                                             value:
@@ -374,7 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 20),
-                                    _ActionRow(onLogout: _handleLogout),
+                                    ActionRow(onLogout: _handleLogout),
                                   ],
                                 ),
                               ),
@@ -384,14 +387,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       RefreshIndicator(
                         onRefresh: _loadPracticeSessions,
                         child: _isLoadingSessions
-                            ? const _CenteredLoader()
+                            ? const CenteredLoader()
                             : _sessionsError != null
-                            ? _ErrorView(
+                            ? ErrorView(
                                 message: _sessionsError!,
                                 onRetry: _loadPracticeSessions,
                               )
                             : (_practiceSessions.isEmpty)
-                            ? const _EmptyState(
+                            ? const EmptyState(
                                 title: 'No practice sessions yet',
                                 subtitle:
                                     'Your recorded sessions will appear here.',
@@ -403,7 +406,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 separatorBuilder: (_, __) =>
                                     const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
-                                  return _PracticeSessionCard(
+                                  return PracticeSessionCard(
                                     session: _practiceSessions[index],
                                   );
                                 },
@@ -418,467 +421,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-/// ---------- UI Bits ----------
-
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({required this.fullName, this.email});
-  final String fullName;
-  final String? email;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            scheme.primary.withOpacity(0.12),
-            scheme.primaryContainer.withOpacity(0.24),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 40,
-            backgroundColor: scheme.primary.withOpacity(0.12),
-            child: Icon(Icons.person_outline, size: 42, color: scheme.primary),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Wrap(
-              runSpacing: 4,
-              children: [
-                Text(
-                  fullName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (email != null)
-                  Text(
-                    email!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlassCard extends StatelessWidget {
-  const _GlassCard({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final border = BorderSide(color: Colors.grey.withOpacity(0.15));
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.fromBorderSide(border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Padding(padding: const EdgeInsets.all(16), child: child),
-    );
-  }
-}
-
-class _TDivider extends StatelessWidget {
-  const _TDivider();
-  @override
-  Widget build(BuildContext context) {
-    return Divider(color: Colors.grey.withOpacity(0.2), height: 20);
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-  const _InfoTile({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: scheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: scheme.primary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.onLogout});
-  final VoidCallback onLogout;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: onLogout,
-            icon: const Icon(Icons.logout),
-            label: const Text('Logout'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[400],
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PracticeSessionCard extends StatelessWidget {
-  final Map<String, dynamic> session;
-  const _PracticeSessionCard({required this.session});
-
-  String _formatDateTime(String? dateTimeStr) {
-    if (dateTimeStr == null || dateTimeStr.isEmpty) return 'N/A';
-    final dateTime = DateTime.tryParse(dateTimeStr);
-    if (dateTime == null) return 'N/A';
-    return DateFormat('MMM d, y • h:mm a').format(dateTime.toLocal());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    final drillGroupName =
-        (session['drill_group_name'] as String?) ?? 'Untitled Session';
-    final totalShots = (session['total_shots'] ?? 0).toString();
-    final durationSecs = (session['total_duration_seconds'] ?? 0).toString();
-    final avgAcc = session['avg_accuracy']?.toString() ?? '0';
-    final drills = (session['drills'] is List) ? session['drills'] as List : [];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.15)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Row
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    drillGroupName,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '$totalShots shots',
-                    style: TextStyle(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Stats Row
-            Row(
-              children: [
-                Expanded(
-                  child: _StatItem(
-                    icon: Icons.timer_outlined,
-                    value: '${durationSecs}s',
-                    label: 'Duration',
-                  ),
-                ),
-                Expanded(
-                  child: _StatItem(
-                    icon: Icons.timeline,
-                    value: '$avgAcc%',
-                    label: 'Accuracy',
-                  ),
-                ),
-                Expanded(
-                  child: _StatItem(
-                    icon: Icons.sports,
-                    value: '${drills.length}',
-                    label: 'Drills',
-                  ),
-                ),
-              ],
-            ),
-
-            if (drills.isNotEmpty) ...[
-              const _TDivider(),
-              Text(
-                'Drills',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              ...List.generate(drills.length, (index) {
-                final drill = drills[index] as Map<String, dynamic>? ?? {};
-                final name = (drill['name'] ?? 'Drill').toString();
-                final shots = (drill['shots'] ?? 0).toString();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Icon(Icons.play_arrow, size: 18, color: scheme.primary),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                      Text(
-                        '$shots shots',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.schedule, size: 16, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Started: ${_formatDateTime(session['started_at'] as String?)}',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  color: scheme.onSurfaceVariant.withOpacity(0.6),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  const _ErrorView({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: scheme.error),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  const _EmptyState({required this.title, required this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 56,
-              color: scheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CenteredLoader extends StatelessWidget {
-  const _CenteredLoader();
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final String label;
-
-  const _StatItem({
-    required this.icon,
-    required this.value,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: scheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: scheme.primary),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-}
