@@ -95,9 +95,7 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => GroupPracticeRecordingScreen(
-            drillGroup: detail,
             sessionId: response['id'] as String,
-            drillEntryIdsByDrillId: drillEntryIdsByDrillId,
           ),
         ),
       );
