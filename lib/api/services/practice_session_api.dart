@@ -1,4 +1,7 @@
 import 'dart:developer' as developer;
+
+import 'package:bowlsace/models/practice_session_detail.dart';
+
 import '../api_client.dart';
 
 class PracticeSessionApi {
@@ -130,12 +133,22 @@ class PracticeSessionApi {
       developer.log(
         "✅ Shot recorded successfully",
         error: {
-          "shotId": response["id"],
-          "createdAt": response["created_at"],
-          "drillEntryId": response["drill_entry_id"],
+          "shotId": response is Map<String, dynamic> ? response["id"] : null,
+          "createdAt": response is Map<String, dynamic>
+              ? response["created_at"]
+              : null,
+          "drillEntryId": response is Map<String, dynamic>
+              ? response["drill_entry_id"]
+              : null,
           "raw": response,
         },
       );
+
+      if (response is! Map<String, dynamic>) {
+        throw FormatException(
+          "Unexpected response format: ${response.runtimeType}. Expected Map<String, dynamic>.",
+        );
+      }
 
       return response;
     } catch (e, stackTrace) {
@@ -143,6 +156,53 @@ class PracticeSessionApi {
         "❌ Error recording shot",
         error: {"error": e.toString(), "payload": body, "sessionId": sessionId},
         stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  /// Fetch a single practice session by ID and parse full details.
+  Future<PracticeSessionDetail> getPracticeSessionById({
+    required String sessionId,
+  }) async {
+    developer.log(
+      "Fetching practice session by ID",
+      error: {
+        "sessionId": sessionId,
+        "endpoint": "/practice-sessions/$sessionId",
+      },
+    );
+
+    try {
+      final resp = await _apiClient.get('/practice-sessions/$sessionId');
+
+      if (resp is! Map<String, dynamic>) {
+        // throw ApiException(
+        //   500,
+        //   message:
+        //       'Unexpected response type for getPracticeSessionById: ${resp.runtimeType}',
+        //   body: resp,
+        // );
+      }
+
+      final detail = PracticeSessionDetail.fromJson(resp);
+
+      developer.log(
+        "Fetched practice session",
+        error: {
+          "sessionId": detail.id,
+          "drillCount": detail.drills.length,
+          "totalShots": detail.totalShots,
+          "avgAccuracy": detail.avgAccuracy,
+        },
+      );
+
+      return detail;
+    } catch (e, st) {
+      developer.log(
+        "Error fetching practice session",
+        error: e,
+        stackTrace: st,
       );
       rethrow;
     }

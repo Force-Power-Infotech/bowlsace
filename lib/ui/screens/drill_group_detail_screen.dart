@@ -94,9 +94,8 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => GroupPracticeRecordingScreen(
-            sessionId: response['id'] as String,
-          ),
+          builder: (context) =>
+              GroupPracticeRecordingScreen(sessionId: response['id'] as String),
         ),
       );
     } catch (e) {
@@ -409,24 +408,6 @@ class _DrillGroupDetailScreenState extends State<DrillGroupDetailScreen> {
                             ),
                           ],
                         ),
-                        // const SizedBox(height: 16),
-                        // SizedBox(
-                        //   width: double.infinity,
-                        //   child: ElevatedButton.icon(
-                        //     onPressed: () {
-                        //       _startGroupPractice(detail);
-                        //     },
-                        //     icon: const Icon(Icons.sports_cricket),
-                        //     label: const Text('Start Group Practice'),
-                        //     style: ElevatedButton.styleFrom(
-                        //       padding: const EdgeInsets.symmetric(vertical: 16),
-                        //       shape: RoundedRectangleBorder(
-                        //         borderRadius: BorderRadius.circular(12),
-                        //       ),
-                        //     ),
-                        //   ),
-                        // ),
-                        // const SizedBox(height: 24),
                       ],
                     ),
                   ),

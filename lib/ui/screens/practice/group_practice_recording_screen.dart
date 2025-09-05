@@ -1,30 +1,28 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:bowlsace/api/api_client.dart';
+import 'package:bowlsace/models/sub_drill.dart';
 import 'package:bowlsace/ui/widgets/appbar.dart';
+import 'package:bowlsace/ui/widgets/uihelpers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../../../models/drill_group_detail.dart';
+
+import '../../../models/drill_group_detail.dart'; // DrillGroupDetail / Drill / SubDrill
 import '../../../models/shot_record.dart';
-import '../../../models/sub_drill.dart';
+import '../../../models/practice_session_detail.dart'; // Detail models we added
 import '../../../repositories/user_repository.dart';
 import '../../../api/services/practice_session_api.dart';
-import '../../../api/api_client.dart';
 
 import '../../../di/service_locator.dart';
 import '../../widgets/drill_card.dart';
 
 class GroupPracticeRecordingScreen extends StatefulWidget {
-  final DrillGroupDetail drillGroup;
   final String sessionId;
-  // Mapping of original drillId -> backend drill entry id
-  final Map<String, String> drillEntryIdsByDrillId;
 
   const GroupPracticeRecordingScreen({
     Key? key,
-    required this.drillGroup,
     required this.sessionId,
-    required this.drillEntryIdsByDrillId,
   }) : super(key: key);
 
   @override
@@ -37,21 +35,27 @@ class _GroupPracticeRecordingScreenState
   late final UserRepository _userRepository;
   late final PracticeSessionApi _practiceSessionApi;
 
+  // Loading + server state
+  bool _isLoadingDetails = true;
+  PracticeSessionDetail? _sessionDetail;
+  late Map<String, String> _entryIdByDrillId; // drill_id (catalog) -> drill entry id (session)
+  DrillGroupDetail? _drillGroupView;          // Adapted from server detail for UI
+
   // Paging / progress
   late final PageController _pageController;
   int _currentDrillIndex = 0;
 
   // Drill + subdrill state
-  final Map<String, List<ShotRecord>> _shotsPerDrill = {};
-  final Map<String, String> _notesPerDrill = {};
-  final Map<String, int> _currentMapLength = {};
-  final Map<String, int> _subDrillShots = {};
-  final Map<String, int> _subDrillDurations = {};
-  final Map<String, int> _drillDurations = {};
+  final Map<String, List<ShotRecord>> _shotsPerDrill = {}; // keyed by drill_id
+  final Map<String, String> _notesPerDrill = {};           // keyed by drill_id
+  final Map<String, int> _currentMapLength = {};           // keyed by drill_id or sub_drill_id
+  final Map<String, int> _subDrillShots = {};              // keyed by sub_drill_id
+  final Map<String, int> _subDrillDurations = {};          // keyed by sub_drill_id (minutes)
+  final Map<String, int> _drillDurations = {};             // keyed by drill_id (minutes)
 
   // Time control
   late final TextEditingController _timeController;
-  late int _remainingSeconds;
+  int _remainingSeconds = 0;
   Timer? _timer;
   bool _isPaused = true;
 
@@ -61,31 +65,10 @@ class _GroupPracticeRecordingScreenState
     _pageController = PageController();
     _userRepository = getIt<UserRepository>();
     _practiceSessionApi = getIt<PracticeSessionApi>();
+    _entryIdByDrillId = {};
+    _timeController = TextEditingController(text: '0:00');
 
-    // Initialize maps for each drill and compute total duration
-    int totalDuration = 0;
-    for (var drill in widget.drillGroup.drills) {
-      _shotsPerDrill[drill.id] = [];
-      _notesPerDrill[drill.id] = '';
-      _currentMapLength[drill.id] = 0;
-      _drillDurations[drill.id] = drill.durationMinutes;
-
-      for (var subDrill in drill.subDrills) {
-        _subDrillShots[subDrill.id] = subDrill.numberOfShots ?? 0;
-        _subDrillDurations[subDrill.id] =
-            subDrill.duration ?? drill.durationMinutes;
-      }
-
-      totalDuration += drill.subDrills.isEmpty
-          ? drill.durationMinutes
-          : drill.subDrills.fold(
-              0,
-              (sum, s) => sum + (_subDrillDurations[s.id] ?? 0),
-            );
-    }
-
-    _remainingSeconds = totalDuration * 60;
-    _timeController = TextEditingController(text: '${totalDuration}:00');
+    _loadSessionDetails();
   }
 
   @override
@@ -94,6 +77,161 @@ class _GroupPracticeRecordingScreenState
     _timeController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  // ---------- Server load & hydration ----------
+  Future<void> _loadSessionDetails() async {
+    try {
+      final detail = await _practiceSessionApi.getPracticeSessionById(
+        sessionId: widget.sessionId,
+      );
+
+      // Build authoritative mapping drill_id -> session drill entry id
+      final serverMap = detail.buildEntryIdMap();
+      _entryIdByDrillId.addAll(serverMap);
+
+      // Adapt fetched drills into your UI Drill/DrillGroupDetail models
+      final adapted = _adaptToDrillGroup(detail);
+
+      // Hydrate durations, notes, shots, and current mat lengths from server
+      for (final dEntry in detail.drills) {
+        // Duration (minutes) from server seconds
+        _drillDurations[dEntry.drillId] =
+            (dEntry.durationSeconds / 60).ceil();
+
+        // Notes
+        _notesPerDrill[dEntry.drillId] = dEntry.notes;
+
+        // Drill shot_list -> our ShotRecord[]
+        if (dEntry.shotList.isNotEmpty) {
+          final converted = dEntry.shotList.asMap().entries.map((e) {
+            final s = e.value;
+            return ShotRecord(
+              mapLength: s.matLength ?? 0,
+              shotNumber: s.shotNumber ?? (e.key + 1),
+              timestamp: s.createdAt ?? DateTime.now(),
+            );
+          }).toList();
+          _shotsPerDrill[dEntry.drillId] = converted;
+          _currentMapLength[dEntry.drillId] =
+              converted.isNotEmpty ? converted.last.mapLength : 0;
+        } else {
+          _shotsPerDrill[dEntry.drillId] = [];
+          _currentMapLength[dEntry.drillId] = 0;
+        }
+
+        // Sub-drills: shots, durations, last mat length if provided later
+        for (final sd in dEntry.subDrills) {
+          _subDrillShots[sd.subDrillId] = sd.shots;
+          _subDrillDurations[sd.subDrillId] =
+              (sd.durationSeconds / 60).ceil();
+          if (sd.shotList.isNotEmpty) {
+            _currentMapLength[sd.subDrillId] =
+                sd.shotList.last.matLength ?? 0;
+          }
+        }
+      }
+
+      // Compute total planned minutes -> remainingSeconds
+      _recomputeRemainingSeconds(adapted);
+
+      if (!mounted) return;
+      setState(() {
+        _sessionDetail = detail;
+        _drillGroupView = adapted;
+        _isLoadingDetails = false;
+      });
+    } catch (e, st) {
+      _logJson({
+        'level': 'error',
+        'event': 'loadSessionDetails.error',
+        'error': _errToJson(e, st),
+      });
+      if (!mounted) return;
+      setState(() => _isLoadingDetails = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load session: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  DrillGroupDetail _adaptToDrillGroup(PracticeSessionDetail detail) {
+    // Convert DrillEntryOut -> your UI Drill/SubDrill
+    int computedGroupMinutes = 0;
+
+    final drills = detail.drills.map((de) {
+      final subDrills = de.subDrills.map((sd) {
+        final subMinutes = (sd.durationSeconds / 60).ceil();
+        return SubDrill(
+          id: sd.id,
+          title: sd.title,
+          duration: subMinutes,
+          numberOfShots: sd.shots,
+          instruction: '',
+          drillId: de.id,                                   // link to parent
+          createdAt: detail.createdAt ?? DateTime.now(),          // ensure non-null
+        );
+      }).toList();
+
+      // Prefer drill duration from API; fall back to sum of subdrills if present
+      final drillMinutes = (de.durationSeconds / 60).ceil();
+      final minutesForGroup =
+          subDrills.isEmpty ? drillMinutes : subDrills.fold<int>(0, (s, sd) => s + (sd.duration ?? 0));
+      computedGroupMinutes += minutesForGroup;
+
+      return Drill(
+        id: de.id,
+        name: de.name,
+        durationMinutes: drillMinutes,
+        subDrills: subDrills,
+
+        // Extra fields required by your model (non-null):
+        description: '',
+        difficulty: 0,                 // safe default int
+        isActive: true,                // safe default bool
+        drillType: 'session',          // harmless label
+        drillGroupId: detail.drillGroupId,
+      );
+    }).toList();
+
+    final sessionMinutes = (detail.totalDurationSeconds / 60).ceil();
+    final groupMinutes = sessionMinutes > 0 ? sessionMinutes : computedGroupMinutes;
+
+    return DrillGroupDetail(
+      id: detail.drillGroupId,
+      name: detail.drillGroupName,
+      drills: drills,
+
+      // Extra fields required by your model (non-null):
+      description: '',
+      difficulty: 0,                                   // safe default int
+      isPublic: false,                                 // safe default bool
+      tags: const [],
+      metaDrillGroupId: detail.drillGroupId,
+      userId: int.tryParse(detail.userId) ?? 0,        // convert string -> int
+      createdAt: detail.createdAt ?? DateTime.now(),   // ensure non-null
+      updatedAt: detail.createdAt ?? DateTime.now(),   // no updated_at in API
+      durationMinutes: groupMinutes,
+    );
+  }
+
+  void _recomputeRemainingSeconds(DrillGroupDetail group) {
+    int totalMinutes = 0;
+    for (final d in group.drills) {
+      if (d.subDrills.isEmpty) {
+        totalMinutes += _drillDurations[d.id] ?? d.durationMinutes;
+      } else {
+        totalMinutes += d.subDrills.fold<int>(
+          0,
+          (sum, sd) => sum + (_subDrillDurations[sd.id] ?? sd.duration ?? 0),
+        );
+      }
+    }
+    _remainingSeconds = totalMinutes * 60;
+    _timeController.text = '$totalMinutes:00';
   }
 
   // ---------- Timer ----------
@@ -126,7 +264,7 @@ class _GroupPracticeRecordingScreenState
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Practice Session Complete'),
-        content: const Text('Great job! Would you like to save this session?'),
+        content: const Text('Great job! You can finish this session now.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -135,9 +273,9 @@ class _GroupPracticeRecordingScreenState
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              _savePracticeSession();
+              if (mounted) Navigator.pop(context);
             },
-            child: const Text('Save Session'),
+            child: const Text('Finish'),
           ),
         ],
       ),
@@ -198,7 +336,9 @@ class _GroupPracticeRecordingScreenState
     const Duration baseDelay = Duration(milliseconds: 800);
     NetworkException? lastNetErr;
 
-    final drillEntryId = widget.drillEntryIdsByDrillId[drillId] ?? drillId;
+    // Use authoritative mapping from server
+    final drillEntryId = _entryIdByDrillId[drillId] ?? drillId;
+
     final nextShotNumber = subDrillId != null
         ? (_subDrillShots[subDrillId] ?? 0) + 1
         : (_shotsPerDrill[drillId]?.length ?? 0) + 1;
@@ -220,9 +360,7 @@ class _GroupPracticeRecordingScreenState
             'currentShotsCount': subDrillId != null
                 ? (_subDrillShots[subDrillId] ?? 0)
                 : (_shotsPerDrill[drillId]?.length ?? 0),
-            'hasEntryIdMapping': widget.drillEntryIdsByDrillId.containsKey(
-              drillId,
-            ),
+            'hasEntryIdMapping': _entryIdByDrillId.containsKey(drillId),
           },
         });
 
@@ -315,7 +453,10 @@ class _GroupPracticeRecordingScreenState
   }
 
   void _undoLastShot(String drillId) {
-    final hasSubDrills = widget.drillGroup.drills.any(
+    final group = _drillGroupView;
+    if (group == null) return;
+
+    final hasSubDrills = group.drills.any(
       (d) => d.id == drillId && d.subDrills.isNotEmpty,
     );
     if (hasSubDrills) return;
@@ -330,266 +471,14 @@ class _GroupPracticeRecordingScreenState
     });
   }
 
-  Future<void> _updateSubDrillShots(
-    String subDrillId,
-    int shots, {
-    int? mapLength,
-  }) async {
-    String drillId = '';
-    String drillName = '';
-    String subDrillTitle = '';
-
-    for (var drill in widget.drillGroup.drills) {
-      final subDrill = drill.subDrills.firstWhere(
-        (sd) => sd.id == subDrillId,
-        orElse: () => SubDrill(
-          title: '',
-          instruction: '',
-          drillId: '',
-          id: '',
-          createdAt: DateTime.now(),
-        ),
-      );
-      if (subDrill.id == subDrillId) {
-        drillId = drill.id;
-        drillName = drill.name;
-        subDrillTitle = subDrill.title;
-        break;
-      }
-    }
-
-    if (drillId.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Error: Could not find drill for this sub-drill'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-      return;
-    }
-
-    try {
-      final newShots = shots.clamp(0, 100);
-      final drillEntryId = widget.drillEntryIdsByDrillId[drillId] ?? drillId;
-
-      if (kDebugMode) {
-        debugPrint(
-          '[updateSubDrillShots] sessionId=${widget.sessionId} '
-          'parentDrillId=$drillId entryId=$drillEntryId '
-          'subDrillId=$subDrillId shots=$newShots',
-        );
-      }
-
-      await _practiceSessionApi.recordShot(
-        sessionId: widget.sessionId,
-        drillEntryId: drillEntryId,
-        matLength: mapLength ?? 1,
-        shotNumber: newShots,
-        subDrillId: subDrillId,
-        useSubDrills: true,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _subDrillShots[subDrillId] = newShots;
-      });
-
-      if (drillName.isNotEmpty && subDrillTitle.isNotEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '$drillName - $subDrillTitle: Shots updated to $newShots',
-            ),
-            duration: const Duration(seconds: 1),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error updating shots: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-    }
-  }
-
   void _updateDrillDuration(String drillId, int duration) {
     setState(() {
       if (duration >= 0) {
         _drillDurations[drillId] = duration;
-        _updateTotalTime();
+        final group = _drillGroupView;
+        if (group != null) _recomputeRemainingSeconds(group);
       }
     });
-  }
-
-  void _updateSubDrillDuration(String subDrillId, int duration) {
-    String drillName = '';
-    String subDrillTitle = '';
-    for (var drill in widget.drillGroup.drills) {
-      final sd = drill.subDrills.firstWhere(
-        (x) => x.id == subDrillId,
-        orElse: () => SubDrill(
-          title: '',
-          instruction: '',
-          drillId: '',
-          id: '',
-          createdAt: DateTime.now(),
-        ),
-      );
-      if (sd.id == subDrillId) {
-        drillName = drill.name;
-        subDrillTitle = sd.title;
-        break;
-      }
-    }
-
-    setState(() {
-      if (duration >= 0) {
-        _subDrillDurations[subDrillId] = duration;
-        _updateTotalTime();
-      }
-    });
-
-    if (drillName.isNotEmpty && subDrillTitle.isNotEmpty && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$drillName - $subDrillTitle: Duration updated to $duration min',
-          ),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  void _updateTotalTime() {
-    int totalMinutes = 0;
-    for (var drill in widget.drillGroup.drills) {
-      totalMinutes += drill.subDrills.isEmpty
-          ? (_drillDurations[drill.id] ?? drill.durationMinutes)
-          : drill.subDrills.fold(
-              0,
-              (sum, sd) => sum + (_subDrillDurations[sd.id] ?? 0),
-            );
-    }
-    _remainingSeconds = totalMinutes * 60;
-    _timeController.text = '$totalMinutes:00';
-  }
-
-  Future<void> _savePracticeSession() async {
-    try {
-      final user = await _userRepository.getCurrentUser();
-      if (user == null) {
-        throw Exception('User not found. Please login first.');
-      }
-
-      final drills = widget.drillGroup.drills.map((drill) {
-        final subDrillsData = drill.subDrills
-            .map(
-              (sd) => {
-                'id': sd.id,
-                'name': sd.title,
-                'duration': _subDrillDurations[sd.id] ?? 0,
-                'shots': _subDrillShots[sd.id] ?? 0,
-              },
-            )
-            .toList();
-
-        final duration = drill.subDrills.isEmpty
-            ? (_drillDurations[drill.id] ?? drill.durationMinutes)
-            : subDrillsData.fold(0, (sum, m) => sum + (m['duration'] as int));
-
-        const accuracy = 100;
-
-        return {
-          'id': drill.id,
-          'name': drill.name,
-          'duration': duration,
-          'shots': (_shotsPerDrill[drill.id]?.length ?? 0),
-          'accuracy': accuracy,
-          'notes': _notesPerDrill[drill.id] ?? '',
-          'subDrills': subDrillsData,
-        };
-      }).toList();
-
-      final sessionResponse = await _practiceSessionApi.createPracticeSession(
-        userId: user.id.toString(),
-        drillGroupId: widget.drillGroup.id,
-        drillGroupName: widget.drillGroup.name,
-        totalDuration: _remainingSeconds ~/ 60,
-        timestamp: DateTime.now(),
-        drills: drills,
-      );
-
-      final String sessionId = sessionResponse['id'] as String;
-      debugPrint('Practice session created with ID: $sessionId');
-
-      final Map<String, String> drillEntryIdsByDrillId = {};
-      if (sessionResponse['drills'] is List) {
-        for (final item in (sessionResponse['drills'] as List)) {
-          if (item is Map<String, dynamic>) {
-            final originalDrillId = item['drill_id'] as String?;
-            final entryId = item['id'] as String?;
-            if (originalDrillId != null && entryId != null) {
-              drillEntryIdsByDrillId[originalDrillId] = entryId;
-            }
-          }
-        }
-      }
-
-      for (var drill in widget.drillGroup.drills) {
-        final shots = _shotsPerDrill[drill.id] ?? [];
-        for (var shot in shots) {
-          await _practiceSessionApi.recordShot(
-            sessionId: sessionId,
-            drillEntryId: drillEntryIdsByDrillId[drill.id] ?? drill.id,
-            matLength: shot.mapLength,
-            shotNumber: shot.shotNumber,
-            useSubDrills: false,
-          );
-        }
-
-        if (drill.subDrills.isNotEmpty) {
-          for (var subDrill in drill.subDrills) {
-            final numShots = _subDrillShots[subDrill.id] ?? 0;
-            if (numShots > 0) {
-              await _practiceSessionApi.recordShot(
-                sessionId: sessionId,
-                drillEntryId: drillEntryIdsByDrillId[drill.id] ?? drill.id,
-                matLength: 1,
-                shotNumber: numShots,
-                subDrillId: subDrill.id,
-                useSubDrills: true,
-              );
-            }
-          }
-        }
-      }
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Practice session saved successfully!'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving practice session: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
   }
 
   // ---------- UI pieces ----------
@@ -615,29 +504,28 @@ class _GroupPracticeRecordingScreenState
   }
 
   double get _overallProgress {
-    final total = widget.drillGroup.drills.length;
+    final total = _drillGroupView?.drills.length ?? 0;
     if (total == 0) return 0;
-    // Progress based on paging position (index is 0-based)
     return (_currentDrillIndex + 1) / total;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final total = widget.drillGroup.drills.length;
+    final group = _drillGroupView;
+    final total = group?.drills.length ?? 0;
 
     return Scaffold(
-      // Your custom timer app bar (kept)
       appBar: TimerAppBar(
         remainingSeconds: _remainingSeconds,
-        isPaused: _isPaused,
-        onPauseToggle: _togglePause,
+        isPaused: _isLoadingDetails ? true : _isPaused,
+        onPauseToggle: _isLoadingDetails ? () {} : _togglePause, // never null
         onTimeChanged: (secs) => setState(() => _remainingSeconds = secs),
       ),
 
       body: Column(
         children: [
-          // ===== Session Header: group name + progress + timer chip look =====
+          // Header
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
@@ -652,12 +540,12 @@ class _GroupPracticeRecordingScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Group title + play/pause quick control
+                // Group title + play/pause
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        widget.drillGroup.name,
+                        group?.name ?? 'Loading…',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleLarge?.copyWith(
@@ -666,15 +554,15 @@ class _GroupPracticeRecordingScreenState
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _TimerChip(isPaused: _isPaused, onTap: _togglePause),
+                    if (!_isLoadingDetails)
+                      TimerChip(isPaused: _isPaused, onTap: _togglePause),
                   ],
                 ),
                 const SizedBox(height: 10),
-                // Overall progress
                 ClipRRect(
                   borderRadius: BorderRadius.circular(999),
                   child: LinearProgressIndicator(
-                    value: _overallProgress.clamp(0, 1),
+                    value: total == 0 ? null : _overallProgress.clamp(0, 1),
                     minHeight: 6,
                   ),
                 ),
@@ -683,14 +571,15 @@ class _GroupPracticeRecordingScreenState
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Drill ${_currentDrillIndex + 1} of $total',
+                      total == 0
+                          ? 'Loading drills…'
+                          : 'Drill ${_currentDrillIndex + 1} of $total',
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withOpacity(0.7),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
-                      // Show minutes remaining as a hint
                       '${(_remainingSeconds / 60).ceil()} min left',
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withOpacity(0.7),
@@ -702,77 +591,86 @@ class _GroupPracticeRecordingScreenState
             ),
           ),
 
-          // ===== Pager =====
+          // Pager
           Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: total,
-              onPageChanged: (index) => setState(() {
-                _currentDrillIndex = index;
-              }),
-              itemBuilder: (context, index) {
-                final drill = widget.drillGroup.drills[index];
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight - 40,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Drill Title Strip
-                            Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primaryContainer
-                                      .withOpacity(0.35),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  drill.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
+            child: Stack(
+              children: [
+                if (group != null && total > 0)
+                  PageView.builder(
+                    controller: _pageController,
+                    itemCount: total,
+                    onPageChanged: (index) =>
+                        setState(() => _currentDrillIndex = index),
+                    itemBuilder: (context, index) {
+                      final drill = group.drills[index];
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight - 40,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primaryContainer
+                                            .withOpacity(0.35),
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        drill.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 16),
+
+                                  _buildDrillCard(drill),
+
+                                  const SizedBox(height: 12),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 16),
-
-                            // Drill Card (your component)
-                            _buildDrillCard(drill),
-
-                            // Space to breathe at bottom so it doesn't clash with nav bar
-                            const SizedBox(height: 12),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                if (_isLoadingDetails)
+                  Container(
+                    color: theme.colorScheme.surface.withOpacity(0.6),
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+              ],
             ),
           ),
 
-          // ===== Pager Dots + Bottom Action Bar =====
+          // Dots + bottom actions
           SafeArea(
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Column(
                 children: [
-                  _PageDots(
+                  PageDots(
                     count: total,
-                    index: _currentDrillIndex,
+                    index: total == 0 ? 0 : _currentDrillIndex,
                     onDotTapped: (i) {
+                      if (total == 0) return;
                       _pageController.animateToPage(
                         i,
                         duration: const Duration(milliseconds: 260),
@@ -783,22 +681,24 @@ class _GroupPracticeRecordingScreenState
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      // Prev (ghost / tonal)
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: _currentDrillIndex > 0
-                              ? () {
+                          onPressed: (total == 0 || _currentDrillIndex == 0)
+                              ? null
+                              : () {
                                   _pageController.previousPage(
-                                    duration: const Duration(milliseconds: 260),
+                                    duration:
+                                        const Duration(milliseconds: 260),
                                     curve: Curves.easeInOut,
                                   );
-                                }
-                              : null,
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.colorScheme.surfaceVariant,
-                            foregroundColor: theme.colorScheme.onSurfaceVariant,
+                            foregroundColor:
+                                theme.colorScheme.onSurfaceVariant,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -808,20 +708,38 @@ class _GroupPracticeRecordingScreenState
                         ),
                       ),
                       const SizedBox(width: 12),
-                      // Next / Save (primary)
                       Expanded(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 180),
-                          child: _currentDrillIndex < total - 1
+                          child: (total == 0 || _currentDrillIndex < total - 1)
                               ? ElevatedButton.icon(
                                   key: const ValueKey('next'),
+                                  onPressed: total == 0
+                                      ? null
+                                      : () {
+                                          _pageController.nextPage(
+                                            duration: const Duration(
+                                              milliseconds: 260,
+                                            ),
+                                            curve: Curves.easeInOut,
+                                          );
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                      Icons.arrow_forward_rounded),
+                                  label: const Text('Next'),
+                                )
+                              : ElevatedButton.icon(
+                                  key: const ValueKey('finish'),
                                   onPressed: () {
-                                    _pageController.nextPage(
-                                      duration: const Duration(
-                                        milliseconds: 260,
-                                      ),
-                                      curve: Curves.easeInOut,
-                                    );
+                                    if (mounted) Navigator.pop(context);
                                   },
                                   style: ElevatedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
@@ -831,22 +749,8 @@ class _GroupPracticeRecordingScreenState
                                       borderRadius: BorderRadius.circular(14),
                                     ),
                                   ),
-                                  icon: const Icon(Icons.arrow_forward_rounded),
-                                  label: const Text('Next'),
-                                )
-                              : ElevatedButton.icon(
-                                  key: const ValueKey('save'),
-                                  onPressed: _savePracticeSession,
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.save_rounded),
-                                  label: const Text('Save Session'),
+                                  icon: const Icon(Icons.check_rounded),
+                                  label: const Text('Finish'),
                                 ),
                         ),
                       ),
@@ -858,80 +762,6 @@ class _GroupPracticeRecordingScreenState
           ),
         ],
       ),
-    );
-  }
-}
-
-// ---------- Small UI helpers ----------
-
-class _TimerChip extends StatelessWidget {
-  final bool isPaused;
-  final VoidCallback onTap;
-  const _TimerChip({required this.isPaused, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.primaryContainer,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                size: 18,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                isPaused ? 'Resume' : 'Pause',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PageDots extends StatelessWidget {
-  final int count;
-  final int index;
-  final ValueChanged<int>? onDotTapped;
-  const _PageDots({required this.count, required this.index, this.onDotTapped});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.center,
-      children: List.generate(count, (i) {
-        final active = i == index;
-        return GestureDetector(
-          onTap: onDotTapped == null ? null : () => onDotTapped!(i),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            height: 8,
-            width: active ? 20 : 8,
-            decoration: BoxDecoration(
-              color: active
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outlineVariant.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-        );
-      }),
     );
   }
 }
