@@ -1,7 +1,7 @@
 class SubDrill {
   final String title;
   final String instruction;
-  final String drillId;
+  final String? drillId; // Make drillId nullable
   final int? numberOfShots;
   final int? duration;
   final String id;
@@ -10,7 +10,7 @@ class SubDrill {
   SubDrill({
     required this.title,
     required this.instruction,
-    required this.drillId,
+    this.drillId, // No longer required
     this.numberOfShots,
     this.duration,
     required this.id,
@@ -22,7 +22,7 @@ class SubDrill {
       title: json['title'] as String? ?? 'Untitled Sub-drill',
       instruction:
           json['instruction'] as String? ?? 'No instructions available',
-      drillId: json['drill_id'] as String,
+      drillId: json['drill_id'] as String?, // Make it nullable
       numberOfShots: json['number_of_shots'] as int?,
       duration: json['duration'] as int?,
       id: json['id'] as String,
