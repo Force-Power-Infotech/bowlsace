@@ -1,15 +1,162 @@
 import 'dart:ui';
+import 'dart:developer' as developer;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:get_it/get_it.dart';
+import 'package:intl/intl.dart';
 
-class DashboardScreen extends StatelessWidget {
+import '../../models/user.dart';
+import '../../repositories/user_repository.dart';
+import '../../api/api_client.dart';
+
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final _userRepository = GetIt.I<UserRepository>();
+  final _apiClient = GetIt.I<ApiClient>();
+
+  User? _user;
+  List<Map<String, dynamic>> _recentPracticeSessions = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      _user = await _userRepository.getCurrentUser();
+      if (_user == null) {
+        setState(() {
+          _error = 'User not found';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      await _loadRecentPracticeSessions();
+    } catch (e, st) {
+      developer.log(
+        'Error loading dashboard data',
+        name: 'DashboardScreen',
+        error: e,
+        stackTrace: st,
+      );
+      if (!mounted) return;
+      setState(() {
+        _error = 'Unable to load data';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadRecentPracticeSessions() async {
+    developer.log('Loading recent practice sessions', name: 'DashboardScreen');
+
+    try {
+      if (_user == null) {
+        developer.log(
+          '_user is null; aborting fetch.',
+          name: 'DashboardScreen',
+        );
+        setState(() {
+          _recentPracticeSessions = const [];
+          _isLoading = false;
+          _error = 'User not available';
+        });
+        return;
+      }
+
+      final userId = _user!.id;
+      developer.log(
+        'Fetching recent practice sessions for userId=$userId',
+        name: 'DashboardScreen',
+      );
+
+      // Only fetch the latest 3 sessions
+      final sessionsResponse = await _apiClient.get(
+        '/practice-sessions/users/$userId?skip=0&limit=3',
+      );
+
+      developer.log(
+        'Raw sessionsResponse type: ${sessionsResponse.runtimeType}',
+        name: 'DashboardScreen',
+      );
+
+      final List<Map<String, dynamic>> normalized = [];
+
+      // Schema-aware extraction (similar to profile screen)
+      if (sessionsResponse is List) {
+        for (var i = 0; i < sessionsResponse.length; i++) {
+          final v = sessionsResponse[i];
+          if (v is Map<String, dynamic>) normalized.add(v);
+        }
+      } else if (sessionsResponse is Map) {
+        List? itemsList;
+
+        // Try to find the data in preferred keys
+        if (sessionsResponse['data'] is List) {
+          itemsList = sessionsResponse['data'] as List;
+        } else if (sessionsResponse['items'] is List) {
+          itemsList = sessionsResponse['items'] as List;
+        } else {
+          // Fallback: find the first value that is a List
+          for (final k in sessionsResponse.keys) {
+            final v = sessionsResponse[k];
+            if (v is List) {
+              itemsList = v;
+              break;
+            }
+          }
+        }
+
+        if (itemsList != null) {
+          for (var i = 0; i < itemsList.length; i++) {
+            final item = itemsList[i];
+            if (item is Map<String, dynamic>) normalized.add(item);
+          }
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _recentPracticeSessions = normalized;
+        _isLoading = false;
+        _error = null;
+      });
+    } catch (e, st) {
+      developer.log(
+        'Error loading recent practice sessions',
+        name: 'DashboardScreen',
+        error: e,
+        stackTrace: st,
+      );
+      if (!mounted) return;
+      setState(() {
+        _error = 'Failed to load recent sessions';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       body: Container(
@@ -207,18 +354,156 @@ class DashboardScreen extends StatelessWidget {
               ),
 
               // Activity Items
-              SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  return _ActivityItem(
-                    title: 'Practice Session ${index + 1}',
-                    time: '${60 - (index * 15)} mins ago',
-                    score: (100 - (index * 10)).toString(),
-                    shots: (50 - (index * 5)).toString(),
-                    colorScheme: colorScheme,
-                    index: index,
-                  );
-                }, childCount: 3),
-              ),
+              _isLoading
+                  ? SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    )
+                  : _error != null
+                  ? SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: colorScheme.error,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Unable to load sessions',
+                                style: theme.textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton(
+                                onPressed: _loadRecentPracticeSessions,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : _recentPracticeSessions.isEmpty
+                  ? SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.sports_cricket_outlined,
+                                color: colorScheme.primary.withOpacity(0.5),
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No practice sessions yet',
+                                style: theme.textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Start practicing to see your sessions here',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final session = _recentPracticeSessions[index];
+
+                        // Extract relevant data from session
+                        final title =
+                            session['drill_group_name'] as String? ??
+                            'Practice Session';
+
+                        // Format the timestamp
+                        String formattedTime = 'Recently';
+                        if (session['timestamp'] != null) {
+                          try {
+                            final timestamp = DateTime.parse(
+                              session['timestamp'] as String,
+                            );
+                            final now = DateTime.now();
+                            final difference = now.difference(timestamp);
+
+                            if (difference.inMinutes < 60) {
+                              formattedTime =
+                                  '${difference.inMinutes} mins ago';
+                            } else if (difference.inHours < 24) {
+                              formattedTime = '${difference.inHours} hours ago';
+                            } else {
+                              formattedTime = DateFormat(
+                                'MMM d',
+                              ).format(timestamp);
+                            }
+                          } catch (e) {
+                            developer.log(
+                              'Error parsing timestamp: $e',
+                              name: 'DashboardScreen',
+                            );
+                          }
+                        }
+
+                        // Calculate score and shots
+                        int totalShots = 0;
+                        double totalAccuracy = 0;
+                        int drillCount = 0;
+
+                        if (session['drills'] is List) {
+                          final drills = session['drills'] as List;
+                          drillCount = drills.length;
+
+                          for (final drill in drills) {
+                            if (drill is Map<String, dynamic>) {
+                              final shots = drill['shots'] as int? ?? 0;
+                              final accuracy = drill['accuracy'] as num? ?? 0;
+
+                              totalShots += shots;
+                              totalAccuracy += accuracy.toDouble();
+                            }
+                          }
+                        }
+
+                        final averageAccuracy = drillCount > 0
+                            ? (totalAccuracy / drillCount).toStringAsFixed(0)
+                            : '0';
+
+                        return _ActivityItem(
+                          title: title,
+                          time: formattedTime,
+                          score: '$averageAccuracy%',
+                          shots: totalShots.toString(),
+                          colorScheme: colorScheme,
+                          index: index,
+                          onTap: () {
+                            // Navigate to session details
+                            if (session['id'] != null) {
+                              // TODO: Navigate to session details screen
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Viewing session details: ${session['id']}',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      }, childCount: _recentPracticeSessions.length),
+                    ),
 
               // Upcoming Events
               SliverToBoxAdapter(
@@ -531,6 +816,7 @@ class _ActivityItem extends StatelessWidget {
   final String shots;
   final ColorScheme colorScheme;
   final int index;
+  final VoidCallback? onTap;
 
   const _ActivityItem({
     required this.title,
@@ -539,6 +825,7 @@ class _ActivityItem extends StatelessWidget {
     required this.shots,
     required this.colorScheme,
     required this.index,
+    this.onTap,
   });
 
   @override
@@ -568,9 +855,7 @@ class _ActivityItem extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () {
-              // View activity details
-            },
+            onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
