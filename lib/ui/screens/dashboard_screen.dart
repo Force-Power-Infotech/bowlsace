@@ -218,7 +218,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 25),
-                      _ProgressCard(colorScheme: colorScheme),
+                      _ProgressCard(
+                        colorScheme: colorScheme,
+                        practiceSessions: _recentPracticeSessions,
+                        isLoading: _isLoading,
+                        hasError: _error != null,
+                      ),
                     ],
                   ),
                 ),
@@ -593,12 +598,61 @@ class _CircularIconButton extends StatelessWidget {
 
 class _ProgressCard extends StatelessWidget {
   final ColorScheme colorScheme;
+  final List<Map<String, dynamic>> practiceSessions;
+  final bool isLoading;
+  final bool hasError;
 
-  const _ProgressCard({required this.colorScheme});
+  const _ProgressCard({
+    required this.colorScheme,
+    required this.practiceSessions,
+    required this.isLoading,
+    required this.hasError,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Calculate stats from practice sessions
+    double totalHours = 0;
+    int totalShots = 0;
+    double averageAccuracy = 0;
+    bool hasStats = false;
+
+    if (!isLoading && !hasError && practiceSessions.isNotEmpty) {
+      int sessionCount = 0;
+      double totalAccuracy = 0;
+
+      for (final session in practiceSessions) {
+        // Calculate total duration in hours
+        if (session['total_duration'] != null) {
+          final durationMinutes = session['total_duration'] as int? ?? 0;
+          totalHours += durationMinutes / 60;
+        }
+
+        // Calculate shots and accuracy
+        if (session['drills'] is List) {
+          final drills = session['drills'] as List;
+          for (final drill in drills) {
+            if (drill is Map<String, dynamic>) {
+              final shots = drill['shots'] as int? ?? 0;
+              final accuracy = drill['accuracy'] as num? ?? 0;
+
+              totalShots += shots;
+              if (shots > 0) {
+                totalAccuracy += accuracy.toDouble();
+                sessionCount++;
+              }
+            }
+          }
+        }
+      }
+
+      if (sessionCount > 0) {
+        averageAccuracy = totalAccuracy / sessionCount;
+        hasStats = true;
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -620,78 +674,196 @@ class _ProgressCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Your Progress',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      '70%',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Icon(Icons.arrow_upward, color: Colors.white, size: 16),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const LinearProgressIndicator(
-            value: 0.7,
-            backgroundColor: Colors.white24,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            borderRadius: BorderRadius.all(Radius.circular(8)),
-            minHeight: 8,
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _ProgressStat(
-                icon: Icons.timer_outlined,
-                value: '12.5',
-                label: 'Hours',
+      child: isLoading
+          ? _buildLoadingView(theme)
+          : hasError
+          ? _buildErrorView(theme)
+          : !hasStats
+          ? _buildEmptyView(theme, context)
+          : _buildStatsView(theme, totalHours, totalShots, averageAccuracy),
+    );
+  }
+
+  Widget _buildLoadingView(ThemeData theme) {
+    return SizedBox(
+      height: 120,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading your progress...',
+              style: theme.textTheme.titleMedium?.copyWith(
                 color: Colors.white,
+                fontWeight: FontWeight.w500,
               ),
-              _ProgressStat(
-                icon: Icons.sports_cricket,
-                value: '287',
-                label: 'Shots',
-                color: Colors.white,
-              ),
-              _ProgressStat(
-                icon: Icons.insights,
-                value: '78%',
-                label: 'Accuracy',
-                color: Colors.white,
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildErrorView(ThemeData theme) {
+    return SizedBox(
+      height: 120,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, color: Colors.white, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              'Unable to load your progress',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyView(ThemeData theme, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Your Progress',
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Center(
+          child: Column(
+            children: [
+              Icon(
+                Icons.sports_cricket_outlined,
+                color: Colors.white,
+                size: 40,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No practice sessions yet',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Start practicing to track your progress',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withOpacity(0.8),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.tonal(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/practice');
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Start Practice'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsView(
+    ThemeData theme,
+    double totalHours,
+    int totalShots,
+    double averageAccuracy,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Your Progress',
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${averageAccuracy.toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Icon(Icons.arrow_upward, color: Colors.white, size: 16),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        LinearProgressIndicator(
+          value: averageAccuracy / 100,
+          backgroundColor: Colors.white24,
+          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          minHeight: 8,
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _ProgressStat(
+              icon: Icons.timer_outlined,
+              value: totalHours.toStringAsFixed(1),
+              label: 'Hours',
+              color: Colors.white,
+            ),
+            _ProgressStat(
+              icon: Icons.sports_cricket,
+              value: totalShots.toString(),
+              label: 'Shots',
+              color: Colors.white,
+            ),
+            _ProgressStat(
+              icon: Icons.insights,
+              value: '${averageAccuracy.toStringAsFixed(0)}%',
+              label: 'Accuracy',
+              color: Colors.white,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
